@@ -14,12 +14,15 @@ This uses Firebase's free **Spark** plan, which needs no credit card. Your data 
 **One-time setup (about 10 minutes)**
 
 1. Go to [console.firebase.google.com](https://console.firebase.google.com), click **Create a project**, and give it a name (e.g. `vyro`). You can turn Google Analytics off. New projects start on the free Spark plan.
+   **Use a new project just for Vyro.** Deploying into a project another app already uses would replace that app's website and security rules.
 2. **Build → Authentication → Get started → Sign-in method → Email/Password → Enable → Save.** Turn on only the first switch, not "Email link".
 3. **Build → Firestore Database → Create database.** Pick a location near you and start in **production mode**. The app's own security rules replace the defaults when you deploy.
 4. **Project settings** (gear icon) **→ General → Your apps → Web (`</>`)**. Register an app called "Vyro", then copy `apiKey`, `authDomain`, `projectId` and `appId` from the config it shows.
-5. On your computer, in this folder:
+5. On your computer:
    ```bash
-   cp .env.example .env      # paste the four values into the VITE_FIREBASE_* lines
+   git clone https://github.com/paulanthony-alt/tracker.git
+   cd tracker
+   cp .env.example .env      # paste the values into the VITE_FIREBASE_* lines (Windows: copy .env.example .env)
    npm install
    npx firebase login        # opens a browser to sign in to your Google account
    npm run deploy            # builds the app and publishes it with the security rules
@@ -39,7 +42,8 @@ This uses Firebase's free **Spark** plan, which needs no credit card. Your data 
 - **Notifications on your phone when Vyro is closed** need a few extra steps. See [Notifications](#notifications).
 - **AI chat isn't available on the free plan.** Keeping an API key secret needs server code (Cloud Functions), which requires the paid Blaze plan. Everything else works, including the rule-based daily briefing, auto day-planner and weekly review. Run the local server version if you want the chat.
 - **Moving existing data:** in the old version go to **Settings → Export backup**, then in the Firebase version go to **Settings → Import backup**.
-- **Updating later:** after pulling new code, run `npm run deploy` again.
+- **Updating later:** in the `tracker` folder, run `git pull`, then `npm run deploy`.
+- **This repository is public:** anyone can read the code, but your data, your password, `.env` and the GitHub secret are never in it. `.env` is ignored by Git, and the reminder job's public logs show only counts and times, never your reminder text.
 
 **Try it without a Firebase project:** `npm run dev:emulator` runs the whole Firebase setup locally using Google's emulators (requires Java), at http://localhost:5173.
 
@@ -47,7 +51,7 @@ This uses Firebase's free **Spark** plan, which needs no credit card. Your data 
 
 **While Vyro is open** (any version, no setup), reminders, upcoming events, tasks with a due time, a morning summary and an optional evening habit nudge pop up as cards inside the app at the exact time. If you allow it, they also appear as system notifications, so you see them from other tabs. Important reminders stay on screen until you tap Done or Snooze. Anything that came due while the app was closed is shown when you reopen it. Choose what you get in **Settings → Notifications**.
 
-**On your phone when Vyro is closed** (Firebase version, free) uses push notifications. Firebase can deliver push for free but can't *schedule* it on the free plan, so a small script on GitHub Actions checks every 30 minutes and pushes anything due in the next half hour. Notifications can arrive up to 30 minutes early, and they always show the exact time. A private repo gets 2,000 free GitHub Actions minutes a month and this uses about 1,500, so don't make it run more often.
+**On your phone when Vyro is closed** (Firebase version, free) uses push notifications. Firebase can deliver push for free but can't *schedule* it on the free plan, so a small script on GitHub Actions checks every 10 minutes and pushes anything due before the next check. Notifications can arrive a few minutes early, and they always show the exact time. GitHub Actions is free for public repositories like this one. GitHub's scheduled runs are sometimes delayed by a few minutes at busy times.
 
 **One-time push setup** (after the Firebase setup above):
 
@@ -55,13 +59,14 @@ This uses Firebase's free **Spark** plan, which needs no credit card. Your data 
 2. **Project settings → Cloud Messaging → Web Push certificates → Generate key pair:** copy the key into `.env` as `VITE_FIREBASE_VAPID_KEY`.
 3. Run `npm run deploy` again.
 4. **Project settings → Service accounts → Generate new private key.** This downloads a JSON file. In GitHub, open the repo → **Settings → Secrets and variables → Actions → New repository secret**, name it `FIREBASE_SERVICE_ACCOUNT`, paste the **whole file's contents**, save, then **delete the downloaded file**. It's a master key to your Firebase project; only GitHub should keep it.
-5. Make sure this code is on the **`main`** branch. GitHub only runs scheduled jobs from the default branch.
-6. Test it: GitHub → **Actions → Vyro reminders → Run workflow**. The log lists what it found and sent.
-7. On each phone or computer, open Vyro → **Settings → Notifications → Push to this device → Turn on**, and allow notifications.
+5. Test it: GitHub → **Actions → Vyro reminders → Run workflow**. The log shows how many notifications it found and sent (for privacy it never prints reminder text).
+6. On each phone or computer, open Vyro → **Settings → Notifications → Push to this device → Turn on**, and allow notifications.
    - **iPhone / iPad (iOS 16.4+):** first open Vyro in Safari, tap **Share → Add to Home Screen**, then open Vyro from the home-screen icon and turn push on there. Apple only allows web push for home-screen apps.
    - **Android:** works in Chrome directly. Adding to the home screen is optional.
 
 If a run fails with an error mentioning the Cloud Messaging API, enable **Firebase Cloud Messaging API (V1)** under Project settings → Cloud Messaging.
+
+GitHub pauses scheduled jobs in public repositories after 60 days without any commits. If reminders stop arriving, open **Actions → Vyro reminders** and click **Enable workflow**.
 
 ## Quick start
 

@@ -1,5 +1,5 @@
 /**
- * Vyro push sender. Runs on a schedule (GitHub Actions, every 30 minutes —
+ * Vyro push sender. Runs on a schedule (GitHub Actions, every 10 minutes —
  * see .github/workflows/reminders.yml), reads your data from Firestore, and
  * pushes anything due soon to every device that turned push on.
  *
@@ -10,9 +10,12 @@
  *
  * Environment:
  *   FIREBASE_SERVICE_ACCOUNT  service-account JSON (GitHub secret)
- *   LOOKAHEAD_MINUTES         default 30 (match the schedule interval)
+ *   LOOKAHEAD_MINUTES         default 30; set to the schedule interval (the workflow uses 10)
  *   GRACE_MINUTES             default 45
  *   DRY_RUN=1                 log what would be sent, record nothing
+ *   VERBOSE_LOGS=1            include titles and device names in the log (for running
+ *                             locally). Off by default because Actions logs of a public
+ *                             repository are public.
  *   FIRESTORE_EMULATOR_HOST   test against the emulator (GCLOUD_PROJECT = project id)
  */
 import { createHash } from 'node:crypto';
@@ -26,6 +29,7 @@ import type { CalendarEvent, Habit, NotificationPrefs, Project, Reminder, School
 const LOOKAHEAD = Number(process.env.LOOKAHEAD_MINUTES ?? 30) * 60_000;
 const GRACE = Number(process.env.GRACE_MINUTES ?? 45) * 60_000;
 const DRY_RUN = process.env.DRY_RUN === '1';
+const VERBOSE = process.env.VERBOSE_LOGS === '1';
 const KEEP_SENT_MS = 3 * 86_400_000;
 /** Tokens FCM says will never work again; their device entries are removed. */
 const DEAD_TOKEN_CODES = new Set(['messaging/registration-token-not-registered', 'messaging/invalid-registration-token', 'messaging/invalid-argument']);
@@ -69,7 +73,7 @@ async function main() {
 
   const now = Date.now();
   const due = dueNotifications({ reminders, events, tasks, habits, classes, projects }, prefs, timeZone, now - GRACE, now + LOOKAHEAD);
-  console.log(`Time zone ${timeZone}; ${due.length} notification(s) in window; ${devices.length} device(s).`);
+  console.log(`${due.length} notification(s) in window; ${devices.length} device(s).${VERBOSE ? ` Time zone ${timeZone}.` : ''}`);
 
   const messaging = getMessaging(app);
   const dead = new Set<string>();
@@ -116,7 +120,7 @@ async function main() {
       if (!r.success && r.error && DEAD_TOKEN_CODES.has(r.error.code)) dead.add(live[i].id);
       else if (!r.success) {
         otherErrors++;
-        console.warn(`  ${live[i].label}: ${r.error?.code ?? 'unknown error'}`);
+        console.warn(`  ${VERBOSE ? live[i].label : `device ${i + 1}`}: ${r.error?.code ?? 'unknown error'}`);
       }
     });
     if (res.successCount === 0) {
@@ -132,7 +136,7 @@ async function main() {
 
   for (const id of dead) {
     await root.collection('devices').doc(id).delete();
-    console.log(`Removed a device that no longer accepts push (${devices.find((d) => d.id === id)?.label ?? id}).`);
+    console.log(`Removed a device that no longer accepts push${VERBOSE ? ` (${devices.find((d) => d.id === id)?.label ?? id})` : ''}.`);
   }
 
   if (!DRY_RUN) {
@@ -144,7 +148,9 @@ async function main() {
   if (failures) process.exitCode = 1;
 }
 
-const describe = (n: DueNotification) => `[${n.kind}] ${n.title} — ${n.body} @ ${new Date(n.at).toISOString()}`;
+/** Log line for a notification. Titles stay out of the log unless VERBOSE_LOGS=1. */
+const describe = (n: DueNotification) =>
+  VERBOSE ? `[${n.kind}] ${n.title} — ${n.body} @ ${new Date(n.at).toISOString()}` : `[${n.kind}] due ${new Date(n.at).toISOString().slice(11, 16)} UTC`;
 
 main().catch((err) => {
   console.error(err);

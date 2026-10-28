@@ -54,15 +54,24 @@ describe('push sender', () => {
     expect(out).toContain('No devices have push turned on');
   });
 
-  it('finds reminders due within the next 30 minutes', async () => {
+  it('finds reminders due within the lookahead window', async () => {
     await seed();
-    const { out, code } = runSender({ DRY_RUN: '1' });
+    const { out, code } = runSender({ DRY_RUN: '1', VERBOSE_LOGS: '1' });
     expect(code).toBe(0);
     expect(out).toContain('would send: [reminder] Bring permission slip');
   });
 
+  it('keeps titles, time zone and device names out of the log by default (public Actions logs)', async () => {
+    await seed();
+    const { out } = runSender({ DRY_RUN: '1' });
+    expect(out).toMatch(/would send: \[reminder\] due \d\d:\d\d UTC/);
+    expect(out).not.toContain('Bring permission slip');
+    expect(out).not.toContain('Test phone');
+    expect(out).not.toContain('Time zone');
+  });
+
   it('skips reminders outside the window and ones already marked done', async () => {
-    await seed(reminderIn(90));
+    await seed(reminderIn(90)); // beyond the 30-minute default lookahead
     await put('vyro/owner/reminders/r2', { ...reminderIn(5, 'Done already'), id: 'r2', done: true });
     const { out } = runSender({ DRY_RUN: '1' });
     expect(out).toContain('0 notification(s) in window');
@@ -72,7 +81,7 @@ describe('push sender', () => {
     const r = await seed();
     const key = `rem:r1:${r.date}T${r.time}`;
     await put(`vyro/owner/sent/${createHash('sha256').update(key).digest('hex').slice(0, 40)}`, { key, at: 0, sentAt: Date.now() });
-    const { out } = runSender({ DRY_RUN: '1' });
+    const { out } = runSender({ DRY_RUN: '1', VERBOSE_LOGS: '1' });
     expect(out).toContain('already sent: [reminder] Bring permission slip');
   });
 
@@ -82,7 +91,7 @@ describe('push sender', () => {
     const failed = runSender();
     expect(failed.code).toBe(1);
     expect(failed.out).toMatch(/Send failed \(will retry\)|Not delivered \(will retry\)/);
-    const again = runSender({ DRY_RUN: '1' });
+    const again = runSender({ DRY_RUN: '1', VERBOSE_LOGS: '1' });
     expect(again.out).toContain('would send: [reminder] Bring permission slip');
   });
 });

@@ -1,14 +1,18 @@
-# Sends Vyro push notifications. Free: a private repo gets 2,000 Actions
-# minutes a month and this uses about 1,500 (one short run every 30 minutes).
-# Don't schedule it more often or the free minutes run out.
+# Sends Vyro push notifications every 10 minutes. Free: GitHub Actions minutes
+# are unlimited for public repositories.
 #
-# Setup: README → Notifications. Scheduled runs only happen on the default
-# branch (main). Test anytime with Actions → "Vyro reminders" → Run workflow.
+# This repository is public, so these run logs are public too. The sender only
+# logs counts and times, never reminder titles or device names.
+#
+# Setup: README → Notifications. Scheduled runs happen on the default branch
+# (main). GitHub pauses schedules in public repos after 60 days without commits;
+# if reminders stop, re-enable it under Actions → Vyro reminders.
+# Test anytime with Actions → "Vyro reminders" → Run workflow.
 name: Vyro reminders
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '*/10 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -37,4 +41,4 @@ jobs:
       - run: node scripts/reminders/send.ts
         env:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          LOOKAHEAD_MINUTES: '30'
+          LOOKAHEAD_MINUTES: '10'

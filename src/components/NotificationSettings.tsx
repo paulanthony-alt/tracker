@@ -92,7 +92,7 @@ function PushSection() {
       ) : (
         <>
           <p className="mt-1 text-xs leading-relaxed text-muted">
-            Phones and computers with push turned on get reminders even when Vyro isn’t open. They’re checked every 30 minutes and arrive up to half an hour early, showing the exact time.
+            Phones and computers with push turned on get reminders even when Vyro isn’t open. They’re checked every 10 minutes, so a reminder can arrive a few minutes early; it always shows the exact time.
             {availability === 'unsupported' && ' On iPhone/iPad, add Vyro to your Home Screen first, then open it from there.'}
           </p>
           <div className="mt-2 flex items-center justify-between gap-3">
