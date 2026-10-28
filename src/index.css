@@ -71,6 +71,10 @@
   #root {
     height: 100%;
   }
+  /* Keep content clear of the notch, rounded corners and home indicator. */
+  #root {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+  }
   body {
     @apply bg-bg font-sans text-[14px] text-fg antialiased;
     font-feature-settings: 'cv11', 'ss01', 'ss03';

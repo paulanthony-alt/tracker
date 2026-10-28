@@ -73,7 +73,7 @@ export function Modal({
         aria-modal="true"
         tabIndex={-1}
         className={cn(
-          'relative flex max-h-[92vh] w-full animate-pop-in flex-col rounded-t-2xl border border-line-strong bg-surface shadow-pop focus:outline-none sm:max-h-[84vh] sm:rounded-2xl',
+          'relative flex max-h-[92vh] w-full animate-pop-in flex-col rounded-t-2xl border border-line-strong bg-surface pb-[env(safe-area-inset-bottom)] shadow-pop focus:outline-none sm:max-h-[84vh] sm:rounded-2xl sm:pb-0',
           widths[width],
         )}
       >

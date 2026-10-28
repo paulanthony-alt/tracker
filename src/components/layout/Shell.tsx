@@ -243,8 +243,8 @@ export function Shell({ children }: { children: ReactNode }) {
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div className="absolute inset-0 animate-fade-in bg-black/60" onClick={() => setMobile(false)} />
-          <aside className="absolute inset-y-0 left-0 w-[264px] animate-slide-in border-r border-line bg-surface">
-            <IconButton label="Close menu" className="absolute right-2 top-3" onClick={() => setMobile(false)}>
+          <aside className="absolute inset-y-0 left-0 w-[264px] animate-slide-in border-r border-line bg-surface pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
+            <IconButton label="Close menu" className="absolute right-2 top-[calc(0.75rem+env(safe-area-inset-top))]" onClick={() => setMobile(false)}>
               <X size={17} />
             </IconButton>
             <SidebarContent collapsed={false} onNavigate={() => setMobile(false)} />
@@ -274,7 +274,7 @@ export function Shell({ children }: { children: ReactNode }) {
           </div>
         </header>
         <main id="main" className="min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto w-full max-w-[1400px] px-4 pb-24 pt-6 sm:px-6 lg:px-8">{children}</div>
+          <div className="mx-auto w-full max-w-[1400px] px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-6 sm:px-6 lg:px-8">{children}</div>
         </main>
       </div>
     </div>
@@ -285,7 +285,7 @@ export function Toaster() {
   const toasts = useToasts((s) => s.toasts);
   const dismiss = useToasts((s) => s.dismiss);
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[70] flex flex-col items-center gap-2 px-4 sm:bottom-6 sm:items-end sm:px-6" aria-live="polite">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[70] flex flex-col items-center gap-2 px-4 sm:bottom-6 sm:items-end sm:px-6" aria-live="polite">
       {toasts.map((t) => (
         <div key={t.id} className="pointer-events-auto flex max-w-sm animate-toast-in items-center gap-2.5 rounded-xl border border-line-strong bg-surface-2 px-3.5 py-2.5 text-[13px] shadow-pop">
           {t.kind === 'success' ? <CheckCircle2 size={16} className="shrink-0 text-good" /> : t.kind === 'error' ? <AlertTriangle size={16} className="shrink-0 text-bad" /> : <Info size={16} className="shrink-0 text-accent" />}
