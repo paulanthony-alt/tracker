@@ -2,18 +2,10 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Eye, EyeOff, Loader2, Lock } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import { MIN_PASSWORD_LENGTH, OWNER_EMAIL } from '@/lib/firebaseConfig';
+import { BrandMark } from './BrandMark';
 import { Button } from './ui/primitives';
 
 const loadFirebase = () => import('@/lib/firebase');
-
-function LogoMark() {
-  return (
-    <svg viewBox="0 0 32 32" className="h-7 w-7" aria-hidden>
-      <circle cx="16" cy="16" r="9" fill="none" stroke="rgb(var(--line-strong))" strokeWidth="3.5" />
-      <path d="M16 7a9 9 0 0 1 8.5 12" fill="none" stroke="rgb(var(--accent))" strokeWidth="3.5" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 function PasswordInput({ id, value, onChange, placeholder, autoComplete, autoFocus }: { id: string; value: string; onChange: (v: string) => void; placeholder: string; autoComplete: string; autoFocus?: boolean }) {
   const [show, setShow] = useState(false);
@@ -69,9 +61,7 @@ export function LoginScreen() {
     <div className="flex min-h-full items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center text-center">
-          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-line bg-surface">
-            <LogoMark />
-          </div>
+          <BrandMark full className="mb-4 h-24 w-24 rounded-[22px] shadow-pop" />
           <h1 className="text-xl font-semibold tracking-tight">{mode === 'create' ? 'Set your password' : 'Vyro'}</h1>
           <p className="mt-1 text-[13px] text-muted">{mode === 'create' ? 'This password unlocks Vyro on all your devices.' : 'Enter your password to continue.'}</p>
         </div>

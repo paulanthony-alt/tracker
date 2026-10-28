@@ -33,6 +33,7 @@ import { buildAlerts } from '@/lib/insights';
 import { isOverdue } from '@/lib/priority';
 import { cn } from '@/lib/util';
 import { useToasts } from '@/lib/toast';
+import { BrandMark } from '../BrandMark';
 import { Button, IconButton } from '../ui/primitives';
 import { Popover } from '../ui/Field';
 
@@ -96,12 +97,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
   return (
     <div className="flex h-full flex-col">
       <div className={cn('flex h-14 items-center gap-2.5 px-4', collapsed && 'justify-center px-0')}>
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-surface-3">
-          <svg viewBox="0 0 32 32" className="h-5 w-5" aria-hidden>
-            <circle cx="16" cy="16" r="9" fill="none" stroke="rgb(var(--line-strong))" strokeWidth="3.5" />
-            <path d="M16 7a9 9 0 0 1 8.5 12" fill="none" stroke="rgb(var(--accent))" strokeWidth="3.5" strokeLinecap="round" />
-          </svg>
-        </div>
+        <BrandMark className="h-8 w-8 rounded-lg" />
         {!collapsed && (
           <div className="min-w-0">
             <p className="text-[13px] font-semibold leading-4 tracking-tight">Vyro</p>
@@ -257,6 +253,9 @@ export function Shell({ children }: { children: ReactNode }) {
           <IconButton label="Open menu" className="lg:hidden" onClick={() => setMobile(true)}>
             <Menu size={18} />
           </IconButton>
+          <a href="#/" aria-label="Vyro home" className="shrink-0 lg:hidden">
+            <BrandMark className="h-8 w-8 rounded-lg" />
+          </a>
           <button
             type="button"
             onClick={() => setPalette(true)}

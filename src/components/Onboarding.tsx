@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Database, FlaskConical, HardDrive, Sparkles, X } from 'lucide-react';
+import { Database, FlaskConical, HardDrive, X } from 'lucide-react';
 import { hasSampleData, useStore } from '@/lib/store';
 import { buildSampleData } from '@/lib/sample';
 import { todayISO } from '@/lib/dates';
 import { toast } from '@/lib/toast';
+import { BrandMark } from './BrandMark';
 import { Button, IconButton } from './ui/primitives';
 import { Modal, confirmAction } from './ui/Modal';
 import { Field } from './ui/Field';
@@ -69,9 +70,7 @@ export function Onboarding() {
   return (
     <Modal open onClose={() => finish(false)} width="md">
       <div className="py-2">
-        <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-accent/12 text-accent">
-          <Sparkles size={20} />
-        </div>
+        <BrandMark className="mb-4 h-11 w-11 rounded-xl" />
         <h2 className="text-xl font-semibold tracking-tight">Welcome to Vyro</h2>
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted">One place for school, side businesses, habits, goals, tasks and notes. Everything you enter once shows up wherever it belongs.</p>
         <Field label="What should we call you?" className="mt-5">
