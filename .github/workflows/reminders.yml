@@ -1,0 +1,40 @@
+# Sends Vyro push notifications. Free: a private repo gets 2,000 Actions
+# minutes a month and this uses about 1,500 (one short run every 30 minutes).
+# Don't schedule it more often or the free minutes run out.
+#
+# Setup: README → Notifications. Scheduled runs only happen on the default
+# branch (main). Test anytime with Actions → "Vyro reminders" → Run workflow.
+name: Vyro reminders
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vyro-reminders
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            shared
+            scripts/reminders
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: scripts/reminders/package-lock.json
+      - run: npm ci --prefix scripts/reminders
+      - run: node scripts/reminders/send.ts
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          LOOKAHEAD_MINUTES: '30'

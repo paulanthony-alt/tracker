@@ -1,0 +1,154 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+   Design tokens (RGB channels so Tailwind can apply opacity).
+   Dark is the default; light is opt-in from Settings.
+--------------------------------------------------------------------------- */
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: 9 9 11;
+  --surface: 17 17 19;
+  --surface-2: 24 24 27;
+  --surface-3: 33 33 37;
+  --line: 36 36 40;
+  --line-strong: 50 50 56;
+  --fg: 237 237 239;
+  --muted: 161 161 170;
+  --faint: 113 113 122;
+  --accent: 79 140 255;
+  --accent-fg: 255 255 255;
+  --good: 52 211 153;
+  --warn: 245 165 36;
+  --bad: 248 113 113;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: 246 246 247;
+  --surface: 255 255 255;
+  --surface-2: 243 243 245;
+  --surface-3: 233 233 237;
+  --line: 228 228 231;
+  --line-strong: 212 212 216;
+  --fg: 24 24 27;
+  --muted: 82 82 91;
+  --faint: 128 128 138;
+  --accent: 37 99 235;
+  --accent-fg: 255 255 255;
+  --good: 5 150 105;
+  --warn: 202 110 4;
+  --bad: 220 38 38;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    color-scheme: light;
+    --bg: 246 246 247;
+    --surface: 255 255 255;
+    --surface-2: 243 243 245;
+    --surface-3: 233 233 237;
+    --line: 228 228 231;
+    --line-strong: 212 212 216;
+    --fg: 24 24 27;
+    --muted: 82 82 91;
+    --faint: 128 128 138;
+  }
+}
+
+:root[data-accent='green'] { --accent: 52 211 153; --accent-fg: 4 30 20; }
+:root[data-accent='violet'] { --accent: 167 139 250; --accent-fg: 20 12 48; }
+:root[data-accent='amber'] { --accent: 245 165 36; --accent-fg: 40 22 0; }
+:root[data-theme='light'][data-accent='green'] { --accent: 5 150 105; --accent-fg: 255 255 255; }
+:root[data-theme='light'][data-accent='violet'] { --accent: 124 58 237; --accent-fg: 255 255 255; }
+:root[data-theme='light'][data-accent='amber'] { --accent: 202 110 4; --accent-fg: 255 255 255; }
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-bg font-sans text-[14px] text-fg antialiased;
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
+    -webkit-tap-highlight-color: transparent;
+  }
+  ::selection {
+    background: rgb(var(--accent) / 0.3);
+  }
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent) / 0.8);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+  }
+  input[type='date']::-webkit-calendar-picker-indicator,
+  input[type='time']::-webkit-calendar-picker-indicator {
+    opacity: 0.55;
+    cursor: pointer;
+  }
+  :root[data-theme='dark'] input[type='date']::-webkit-calendar-picker-indicator,
+  :root[data-theme='dark'] input[type='time']::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--line-strong)) transparent;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-line bg-surface;
+  }
+  .input {
+    @apply h-9 w-full rounded-lg border border-line bg-surface-2 px-3 text-sm text-fg placeholder:text-faint
+      transition-colors hover:border-line-strong focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/20;
+  }
+  textarea.input {
+    @apply h-auto py-2 leading-relaxed;
+  }
+  select.input {
+    @apply cursor-pointer appearance-none bg-no-repeat pr-8;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%23888' stroke-width='2' viewBox='0 0 24 24'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 0.6rem center;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium text-muted;
+  }
+  .eyebrow {
+    @apply text-2xs font-semibold uppercase tracking-[0.08em] text-faint;
+  }
+  .kbd {
+    @apply inline-flex h-5 min-w-5 items-center justify-center rounded border border-line bg-surface-2 px-1 font-mono text-[10px] text-faint;
+  }
+  .prose-note h1 { @apply mb-2 mt-4 text-xl font-semibold; }
+  .prose-note h2 { @apply mb-2 mt-4 text-base font-semibold; }
+  .prose-note h3 { @apply mb-1 mt-3 text-sm font-semibold; }
+  .prose-note p { @apply my-1.5 leading-relaxed; }
+  .prose-note ul, .prose-note ol { @apply my-1.5 pl-5; }
+  .prose-note ul { @apply list-disc; }
+  .prose-note ol { @apply list-decimal; }
+  .prose-note li { @apply my-0.5; }
+  .prose-note code { @apply rounded bg-surface-3 px-1 py-0.5 font-mono text-[12px]; }
+  .prose-note a { @apply text-accent underline-offset-2 hover:underline; }
+  .prose-note hr { @apply my-4 border-line; }
+  .prose-note blockquote { @apply my-2 border-l-2 border-line-strong pl-3 text-muted; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    transition-duration: 1ms !important;
+  }
+}
