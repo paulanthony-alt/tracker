@@ -287,11 +287,11 @@ export function AssistantPage() {
               </p>
               {mode === 'firebase' ? (
                 <p className="mt-3 rounded-xl border border-line bg-surface-2 p-3 text-xs leading-relaxed text-muted">
-                  On Firebase, keeping the key secret requires Cloud Functions, which only run on the paid Blaze plan. To use the chat for free, run Life OS on your computer with <code className="rounded bg-surface-3 px-1">npm start</code> and an API key in <code className="rounded bg-surface-3 px-1">.env</code>.
+                  On Firebase, keeping the key secret requires Cloud Functions, which only run on the paid Blaze plan. To use the chat for free, run Vyro on your computer with <code className="rounded bg-surface-3 px-1">npm start</code> and an API key in <code className="rounded bg-surface-3 px-1">.env</code>.
                 </p>
               ) : mode === 'local' ? (
                 <p className="mt-3 rounded-xl border border-warn/30 bg-warn/10 p-3 text-xs leading-relaxed text-warn">
-                  You’re running Life OS without its server, so AI isn’t available. Start it with <code className="rounded bg-surface-3 px-1">npm start</code> to enable the database and the assistant.
+                  You’re running Vyro without its server, so AI isn’t available. Start it with <code className="rounded bg-surface-3 px-1">npm start</code> to enable the database and the assistant.
                 </p>
               ) : (
                 <ol className="mt-3 list-decimal space-y-1.5 pl-5 text-[13px] text-muted">
@@ -306,7 +306,7 @@ export function AssistantPage() {
                   </li>
                 </ol>
               )}
-              <p className="mt-4 text-xs text-faint">Everything else in Life OS — prioritization, alerts, the briefing on the right, auto-planning your day and weekly reviews — works without AI.</p>
+              <p className="mt-4 text-xs text-faint">Everything else in Vyro — prioritization, alerts, the briefing on the right, auto-planning your day and weekly reviews — works without AI.</p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <a href="#/habits?tab=plan">
                   <Button size="sm" icon={<Wand2 size={14} />}>

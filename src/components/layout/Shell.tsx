@@ -104,7 +104,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
         </div>
         {!collapsed && (
           <div className="min-w-0">
-            <p className="text-[13px] font-semibold leading-4 tracking-tight">Life OS</p>
+            <p className="text-[13px] font-semibold leading-4 tracking-tight">Vyro</p>
             <p className="truncate text-[11px] text-faint">{name ? `${name}’s workspace` : 'Personal workspace'}</p>
           </div>
         )}

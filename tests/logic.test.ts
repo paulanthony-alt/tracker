@@ -233,8 +233,10 @@ describe('schema & sample data', () => {
   });
   it('validates backups', () => {
     expect(validateBackup({}).ok).toBe(false);
-    const ok = validateBackup({ format: 'life-os-backup', version: 1, data: { tasks: [T({}), { bad: true }] } });
+    const ok = validateBackup({ format: 'vyro-backup', version: 1, data: { tasks: [T({}), { bad: true }] } });
     expect(ok.ok && ok.skipped).toBe(1);
+    // Backups from before the rename still import.
+    expect(validateBackup({ format: 'life-os-backup', version: 1, data: {} }).ok).toBe(true);
   });
 });
 

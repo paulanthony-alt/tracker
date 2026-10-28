@@ -72,8 +72,8 @@ export function LoginScreen() {
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-line bg-surface">
             <LogoMark />
           </div>
-          <h1 className="text-xl font-semibold tracking-tight">{mode === 'create' ? 'Set your password' : 'Life OS'}</h1>
-          <p className="mt-1 text-[13px] text-muted">{mode === 'create' ? 'This password unlocks Life OS on all your devices.' : 'Enter your password to continue.'}</p>
+          <h1 className="text-xl font-semibold tracking-tight">{mode === 'create' ? 'Set your password' : 'Vyro'}</h1>
+          <p className="mt-1 text-[13px] text-muted">{mode === 'create' ? 'This password unlocks Vyro on all your devices.' : 'Enter your password to continue.'}</p>
         </div>
         <form onSubmit={submit} className="card space-y-3 p-5" noValidate>
           {/* Hidden username so password managers save and fill this login correctly. */}
@@ -105,7 +105,7 @@ export function LoginScreen() {
           <details className="mx-auto mt-6 max-w-xs text-center text-xs text-faint">
             <summary className="cursor-pointer hover:text-fg">Forgot your password?</summary>
             <p className="mt-2 leading-relaxed">
-              In the Firebase console, open Authentication → Users, delete the Life OS user, then come back here and choose “Set your password”. Your data is kept.
+              In the Firebase console, open Authentication → Users, delete the Vyro user, then come back here and choose “Set your password”. Your data is kept.
             </p>
           </details>
         )}

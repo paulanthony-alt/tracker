@@ -1,5 +1,5 @@
 /**
- * Build Life OS and publish it to your Firebase project (free Spark plan):
+ * Build Vyro and publish it to your Firebase project (free Spark plan):
  * the web app goes to Firebase Hosting and firestore.rules to Firestore.
  *
  *   npm run deploy

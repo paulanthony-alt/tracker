@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
-import type { CalendarEvent, Goal, GradeCategory, Habit, Project, SchoolClass } from '@shared/schema';
+import type { CalendarEvent, Goal, GradeCategory, Habit, Project, Reminder, SchoolClass } from '@shared/schema';
 import { PROJECT_STATUSES } from '@shared/schema';
 import { useStore } from '@/lib/store';
 import { useUI } from '@/lib/ui';
@@ -630,6 +630,78 @@ export function ProjectEditor({ id }: { id?: string }) {
           <input type="checkbox" checked={!!p.trackFinances} onChange={(e) => set('trackFinances', e.target.checked)} className="accent-[rgb(var(--accent))]" />
           Track revenue &amp; expenses for this project
         </label>
+      </div>
+    </Modal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+export function ReminderEditor({ id }: { id?: string }) {
+  const close = useUI((s) => s.close);
+  const existing = useStore((s) => (id ? s.reminders.find((r) => r.id === id) : undefined));
+  const defaultTime = useStore((s) => s.settings.notifications?.defaultReminderTime ?? '09:00');
+  const [r, setR] = useState<Partial<Reminder>>(existing ?? { done: false });
+  const [err, setErr] = useState('');
+  const set = <K extends keyof Reminder>(k: K, v: Reminder[K] | undefined) => setR((p) => ({ ...p, [k]: v }));
+
+  const save = () => {
+    if (!r.title?.trim()) return setErr('What should you remember?');
+    if (r.time && !r.date) return setErr('Pick a date for the reminder time');
+    const data = { ...r, title: r.title.trim(), important: r.important || undefined } as Reminder;
+    const s = useStore.getState();
+    if (existing) s.update('reminders', existing.id, data);
+    else s.create('reminders', data);
+    toast.success(existing ? 'Reminder saved' : 'Reminder added');
+    close();
+  };
+
+  return (
+    <Modal
+      open
+      onClose={close}
+      title={existing ? 'Edit reminder' : 'New reminder'}
+      width="sm"
+      footer={
+        <Footer
+          close={close}
+          saveLabel={existing ? 'Save' : 'Add reminder'}
+          onSave={save}
+          onDelete={
+            existing
+              ? async () => {
+                  if (await confirmAction({ title: 'Delete reminder?', message: `“${existing.title}” will be deleted.` })) {
+                    useStore.getState().remove('reminders', existing.id);
+                    close();
+                  }
+                }
+              : undefined
+          }
+        />
+      }
+    >
+      <div className="space-y-4">
+        <Field label="Reminder" error={err}>
+          <input className="input" value={r.title ?? ''} onChange={(e) => set('title', e.target.value)} placeholder="e.g. Bring permission slip" data-autofocus />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Date">
+            <input type="date" className="input" value={r.date ?? ''} onChange={(e) => set('date', e.target.value || undefined)} />
+          </Field>
+          <Field label="Time" hint={r.date && !r.time ? `Notifies at ${defaultTime}` : undefined}>
+            <input type="time" className="input" value={r.time ?? ''} onChange={(e) => set('time', e.target.value || undefined)} />
+          </Field>
+        </div>
+        <label className="flex items-center gap-2 text-[13px]">
+          <input type="checkbox" checked={!!r.important} onChange={(e) => set('important', e.target.checked)} className="accent-[rgb(var(--accent))]" />
+          Important (stays on screen until you act on it)
+        </label>
+        {existing && (
+          <label className="flex items-center gap-2 text-[13px] text-muted">
+            <input type="checkbox" checked={!!r.done} onChange={(e) => set('done', e.target.checked)} className="accent-[rgb(var(--accent))]" />
+            Done
+          </label>
+        )}
       </div>
     </Modal>
   );

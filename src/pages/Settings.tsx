@@ -12,11 +12,12 @@ import { Badge, Button, Card, PageHeader } from '@/components/ui/primitives';
 import { Modal, confirmAction } from '@/components/ui/Modal';
 import { Field, Segmented } from '@/components/ui/Field';
 import { loadSampleData, removeSampleDataWithConfirm } from '@/components/Onboarding';
+import { NotificationSettings } from '@/components/NotificationSettings';
 
 export async function exportBackup() {
   const data = useStore.getState().snapshot();
   const backup: Backup = { format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: new Date().toISOString(), data };
-  downloadFile(`life-os-backup-${todayISO()}.json`, JSON.stringify(backup, null, 2));
+  downloadFile(`vyro-backup-${todayISO()}.json`, JSON.stringify(backup, null, 2));
   toast.success('Backup downloaded');
 }
 
@@ -105,7 +106,7 @@ export function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title="Settings" subtitle="Make Life OS yours. Manage your data, backups and integrations." />
+      <PageHeader title="Settings" subtitle="Make Vyro yours. Manage your data, backups and integrations." />
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title="Profile & appearance">
           <div className="space-y-4">
@@ -165,6 +166,8 @@ export function SettingsPage() {
           </div>
         </Card>
 
+        <NotificationSettings />
+
         {s.storageMode === 'firebase' && <AccountCard />}
 
         <Card title="Your data" icon={s.storageMode !== 'local' ? <Database size={15} /> : <HardDrive size={15} />}>
@@ -173,14 +176,14 @@ export function SettingsPage() {
               <>
                 <p className="font-medium text-fg">Saved to your Firebase account</p>
                 <p className="mt-1 text-muted">
-                  Stored in Cloud Firestore in your own Firebase project and synced live to every device where you unlock Life OS. Each device also keeps an offline copy, so the app opens and saves without internet and catches up when you reconnect. Signing out removes that copy from the device.
+                  Stored in Cloud Firestore in your own Firebase project and synced live to every device where you unlock Vyro. Each device also keeps an offline copy, so the app opens and saves without internet and catches up when you reconnect. Signing out removes that copy from the device.
                 </p>
               </>
             ) : s.storageMode === 'server' ? (
               <>
                 <p className="font-medium text-fg">Saved to a local database</p>
                 <p className="mt-1 text-muted">
-                  Stored in <code className="text-xs">data/life-os.db</code> ({persistence.health?.storage === 'json' ? 'JSON file — your Node version has no built-in SQLite' : 'SQLite'}) on the computer running the server. A dated backup is written to <code className="text-xs">data/backups/</code> each day the server starts (last 14 kept).
+                  Stored in <code className="text-xs">data/vyro.db</code> ({persistence.health?.storage === 'json' ? 'JSON file — your Node version has no built-in SQLite' : 'SQLite'}) on the computer running the server. A dated backup is written to <code className="text-xs">data/backups/</code> each day the server starts (last 14 kept).
                 </p>
               </>
             ) : (
@@ -256,7 +259,7 @@ export function SettingsPage() {
                 <p className="font-medium">AI assistant (Anthropic Claude)</p>
                 <p className="text-xs text-faint">
                   {s.storageMode === 'firebase'
-                    ? 'Chat that summarizes tasks, plans your day and suggests priorities. Keeping an API key secret needs a server; on Firebase that means Cloud Functions, which require the paid Blaze plan. Running Life OS locally with npm start also enables it.'
+                    ? 'Chat that summarizes tasks, plans your day and suggests priorities. Keeping an API key secret needs a server; on Firebase that means Cloud Functions, which require the paid Blaze plan. Running Vyro locally with npm start also enables it.'
                     : 'Chat that summarizes tasks, plans your day and suggests priorities. Set ANTHROPIC_API_KEY in .env on the server. The key is never exposed to the browser.'}
                 </p>
               </div>
@@ -369,7 +372,7 @@ function AccountCard() {
 
   return (
     <Card title="Account" icon={<KeyRound size={15} />}>
-      <p className="text-[13px] text-muted">Your password unlocks Life OS on every device. There’s no email to remember; the app uses a fixed account behind the scenes.</p>
+      <p className="text-[13px] text-muted">Your password unlocks Vyro on every device. There’s no email to remember; the app uses a fixed account behind the scenes.</p>
       <form className="mt-4 space-y-2" onSubmit={change} noValidate>
         <input type="email" name="username" autoComplete="username" value={OWNER_EMAIL} readOnly hidden />
         <input id="pw-current" type="password" className="input" placeholder="Current password" autoComplete="current-password" aria-label="Current password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} />

@@ -1,4 +1,5 @@
 import type { Settings, WidgetConfig } from '@shared/schema';
+import { DEFAULT_NOTIFICATION_PREFS } from '@shared/notifications';
 
 /** Widget sizes: sm = one column, md = two columns, lg = full width. */
 export const DEFAULT_WIDGETS: WidgetConfig[] = [
@@ -61,6 +62,7 @@ export function defaultSettings(now = Date.now()): Settings {
     gpaScale: 'weighted',
     pastTerms: [],
     alertDays: 3,
+    notifications: DEFAULT_NOTIFICATION_PREFS,
   };
 }
 

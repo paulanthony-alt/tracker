@@ -1,10 +1,10 @@
 rules_version = '2';
 
-// Life OS — only the single owner account can read or write.
+// Vyro — only the single owner account can read or write.
 //
 // The app signs in with one fixed email (you only ever type the password).
 // If you change OWNER_EMAIL in src/lib/firebaseConfig.ts, change it here too.
-// Data lives at lifeos/owner/{collection}/{id}, independent of the account's uid,
+// Data lives at vyro/owner/{collection}/{id}, independent of the account's uid,
 // so resetting the account (delete + set a new password) keeps your data.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -12,22 +12,25 @@ service cloud.firestore {
     function isOwner() {
       return request.auth != null
         && request.auth.token.firebase.sign_in_provider == 'password'
-        && request.auth.token.email == 'lifeos-owner@example.com';
+        && request.auth.token.email == 'vyro-owner@example.com';
     }
 
     function knownCollection(name) {
       return name in ['tasks', 'classes', 'projects', 'habits', 'goals', 'events',
-                      'reminders', 'notes', 'journal', 'dayPlans', 'reviews', 'settings'];
+                      'reminders', 'notes', 'journal', 'dayPlans', 'reviews', 'settings',
+                      // Devices registered for push notifications (written by the app).
+                      'devices'];
     }
 
-    match /lifeos/owner/{collection}/{docId} {
+    match /vyro/owner/{collection}/{docId} {
       allow read, delete: if isOwner() && knownCollection(collection);
       // Every record must carry its own id, matching the document id.
       allow create, update: if isOwner() && knownCollection(collection)
         && request.resource.data.id == docId;
     }
 
-    // Everything else is closed.
+    // Everything else is closed. (The notification sender uses the Admin SDK,
+    // which bypasses these rules, to record what it has already sent.)
     match /{path=**} {
       allow read, write: if false;
     }

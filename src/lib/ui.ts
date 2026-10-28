@@ -11,6 +11,7 @@ export type ModalState =
   | { kind: 'goal'; id?: string; horizon?: 'weekly' | 'short' | 'long' }
   | { kind: 'class'; id?: string }
   | { kind: 'project'; id?: string }
+  | { kind: 'reminder'; id?: string }
   | null;
 
 interface UIState {

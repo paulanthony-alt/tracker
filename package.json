@@ -1,8 +1,8 @@
 {
-  "name": "life-os",
+  "name": "vyro",
   "private": true,
   "version": "1.0.0",
-  "description": "Life OS — a personal dashboard for school, business, habits, goals, tasks and notes.",
+  "description": "Vyro — a personal dashboard for school, business, habits, goals, tasks and notes.",
   "type": "module",
   "engines": {
     "node": ">=20.10"
@@ -18,8 +18,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "deploy": "node scripts/deploy.mjs",
-    "emulators": "firebase emulators:start --only auth,firestore --project demo-lifeos",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-lifeos \"cross-env FIREBASE_TESTS=1 vitest run\"",
+    "emulators": "firebase emulators:start --only auth,firestore --project demo-vyro",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-vyro \"cross-env FIREBASE_TESTS=1 vitest run\"",
     "dev:emulator": "concurrently -k -n firebase,web -c yellow,green \"npm:emulators\" \"vite --mode emulator\""
   },
   "dependencies": {

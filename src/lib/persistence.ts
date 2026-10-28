@@ -14,7 +14,7 @@
  *    localStorage. It is per-browser and per-device, and clearing site data
  *    erases it — the UI says so and offers export.
  */
-import { COLLECTIONS, type CollectionName, type DataSnapshot, type SyncOp, emptySnapshot } from '@shared/schema';
+import { BACKUP_FORMAT, COLLECTIONS, type CollectionName, type DataSnapshot, type SyncOp, emptySnapshot } from '@shared/schema';
 import { firebaseEnabled } from './firebaseConfig';
 import type { RemoteChange } from './firebase';
 
@@ -340,7 +340,7 @@ export class Persistence {
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ format: 'life-os-backup', version: 1, exportedAt: new Date().toISOString(), data }),
+        body: JSON.stringify({ format: BACKUP_FORMAT, version: 1, exportedAt: new Date().toISOString(), data }),
       },
       30000,
     );

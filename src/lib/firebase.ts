@@ -2,11 +2,12 @@
  * Firebase backend: password-only sign-in (the email is fixed) and Firestore
  * storage with live sync between devices and an offline cache.
  *
- * Data layout: lifeos/owner/{collection}/{recordId}. The path doesn't depend on
+ * Data layout: vyro/owner/{collection}/{recordId}. The path doesn't depend on
  * the account's uid, so if you ever reset the account (delete it in the Firebase
  * console and set a new password), your data is still there.
  */
-import { initializeApp } from 'firebase/app';
+import { initializeApp, type FirebaseApp } from 'firebase/app';
+import { deleteToken, getMessaging, getToken, isSupported as messagingSupported } from 'firebase/messaging';
 import {
   EmailAuthProvider,
   connectAuthEmulator,
@@ -23,6 +24,8 @@ import {
 import {
   clearIndexedDbPersistence,
   collection,
+  deleteDoc,
+  setDoc,
   connectFirestoreEmulator,
   doc,
   getDocs,
@@ -36,8 +39,10 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { COLLECTIONS, emptySnapshot, type CollectionName, type DataSnapshot, type SyncOp } from '@shared/schema';
-import { firebaseConfig, OWNER_EMAIL, useFirebaseEmulator } from './firebaseConfig';
+import { firebaseConfig, firebaseVapidKey, OWNER_EMAIL, pushConfigured, useFirebaseEmulator } from './firebaseConfig';
+import { PUSH_FLAG_KEY } from './notifier';
 
+let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
 let started = false;
@@ -45,7 +50,7 @@ let started = false;
 function start() {
   if (started) return;
   started = true;
-  const app = initializeApp(firebaseConfig);
+  app = initializeApp(firebaseConfig);
   auth = getAuth(app);
   let localCache;
   try {
@@ -61,7 +66,7 @@ function start() {
   }
 }
 
-const ownerCollection = (name: CollectionName) => collection(db, 'lifeos', 'owner', name);
+const ownerCollection = (name: CollectionName) => collection(db, 'vyro', 'owner', name);
 
 // ---------------------------------------------------------------------------
 // Auth
@@ -229,4 +234,99 @@ export async function replaceAllRemote(next: DataSnapshot): Promise<void> {
     for (const rec of next[name] as { id: string }[]) ops.push({ op: 'put', collection: name, id: rec.id, data: rec });
   }
   await writeOps(ops);
+}
+
+// ---------------------------------------------------------------------------
+// Push notifications (Firebase Cloud Messaging, free)
+// ---------------------------------------------------------------------------
+
+export interface PushDevice {
+  id: string;
+  label: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+const DEVICE_ID_KEY = 'lifeos.push.device.v1';
+const devicesCollection = () => collection(db, 'vyro', 'owner', 'devices');
+
+export type PushAvailability = 'ready' | 'not-configured' | 'emulator' | 'unsupported';
+
+export async function pushAvailability(): Promise<PushAvailability> {
+  if (useFirebaseEmulator) return 'emulator';
+  if (!pushConfigured) return 'not-configured';
+  try {
+    return (await messagingSupported()) ? 'ready' : 'unsupported';
+  } catch {
+    return 'unsupported';
+  }
+}
+
+/** A readable name for this device, e.g. "iPhone · Safari". */
+export function deviceLabel(): string {
+  const ua = navigator.userAgent;
+  const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows' : /Linux/.test(ua) ? 'Linux' : 'Device';
+  const browser = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+  return `${os} · ${browser}`;
+}
+
+async function hashId(token: string): Promise<string> {
+  const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token)));
+  return [...bytes].slice(0, 16).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+const pushError = (code: string, message: string) => Object.assign(new Error(message), { code });
+
+/** Ask permission, register this device for push and save it so the sender can reach it. */
+export async function enablePush(): Promise<void> {
+  start();
+  const availability = await pushAvailability();
+  if (availability === 'emulator') throw pushError('push/emulator', 'Push needs a real Firebase project (it isn’t available with the emulators).');
+  if (availability === 'not-configured') throw pushError('push/not-configured', 'Add your Web Push key to .env and deploy again (see README → Notifications).');
+  if (availability === 'unsupported')
+    throw pushError('push/unsupported', /iPhone|iPad/.test(navigator.userAgent) ? 'On iPhone and iPad, first add Vyro to your Home Screen (Share → Add to Home Screen), then open it from there.' : 'This browser doesn’t support push notifications.');
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') throw pushError('push/denied', 'Notifications are blocked for this site. Allow them in your browser or system settings, then try again.');
+  const registration = await navigator.serviceWorker.register('sw.js');
+  await navigator.serviceWorker.ready;
+  const token = await getToken(getMessaging(app), { vapidKey: firebaseVapidKey, serviceWorkerRegistration: registration });
+  if (!token) throw pushError('push/no-token', 'Couldn’t get a push address for this device. Try again.');
+  const id = await hashId(token);
+  const now = Date.now();
+  await setDoc(doc(devicesCollection(), id), { id, token, label: deviceLabel(), createdAt: now, updatedAt: now });
+  localStorage.setItem(DEVICE_ID_KEY, id);
+  localStorage.setItem(PUSH_FLAG_KEY, 'true');
+}
+
+export async function disablePush(): Promise<void> {
+  start();
+  const id = localStorage.getItem(DEVICE_ID_KEY);
+  try {
+    await deleteToken(getMessaging(app));
+  } catch {
+    /* token already gone */
+  }
+  if (id) await deleteDoc(doc(devicesCollection(), id));
+  localStorage.removeItem(DEVICE_ID_KEY);
+  localStorage.removeItem(PUSH_FLAG_KEY);
+}
+
+export const thisDeviceId = () => localStorage.getItem(DEVICE_ID_KEY);
+
+export function watchDevices(cb: (devices: PushDevice[]) => void): () => void {
+  start();
+  return onSnapshot(
+    devicesCollection(),
+    (snap) => cb(snap.docs.map((d) => d.data() as PushDevice).sort((a, b) => b.updatedAt - a.updatedAt)),
+    () => cb([]),
+  );
+}
+
+export async function removeDevice(id: string) {
+  start();
+  await deleteDoc(doc(devicesCollection(), id));
+  if (id === localStorage.getItem(DEVICE_ID_KEY)) {
+    localStorage.removeItem(DEVICE_ID_KEY);
+    localStorage.removeItem(PUSH_FLAG_KEY);
+  }
 }

@@ -13,7 +13,12 @@ export const firebaseConfig = {
   authDomain: env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined,
   projectId: env.VITE_FIREBASE_PROJECT_ID as string | undefined,
   appId: env.VITE_FIREBASE_APP_ID as string | undefined,
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID as string | undefined,
 };
+
+/** Web Push certificate (Firebase console → Project settings → Cloud Messaging). Needed for push. */
+export const firebaseVapidKey = env.VITE_FIREBASE_VAPID_KEY as string | undefined;
+export const pushConfigured = Boolean(firebaseVapidKey && firebaseConfig.messagingSenderId);
 
 export const firebaseEnabled = Boolean(firebaseConfig.apiKey && firebaseConfig.projectId);
 
@@ -24,7 +29,7 @@ export const useFirebaseEmulator = env.VITE_FIREBASE_USE_EMULATOR === 'true';
  * The one account this app signs in with. You only ever type the password.
  * Must match the email in firestore.rules.
  */
-export const OWNER_EMAIL = 'lifeos-owner@example.com';
+export const OWNER_EMAIL = 'vyro-owner@example.com';
 
 /** Minimum password length for the account (Firebase itself requires 6). */
 export const MIN_PASSWORD_LENGTH = 8;

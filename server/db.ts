@@ -10,7 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { COLLECTIONS, type CollectionName, type DataSnapshot, emptySnapshot } from '../shared/schema.ts';
+import { BACKUP_FORMAT, COLLECTIONS, type CollectionName, type DataSnapshot, emptySnapshot } from '../shared/schema.ts';
 
 export interface Store {
   kind: 'sqlite' | 'json';
@@ -169,10 +169,10 @@ function createJsonStore(file: string): Store {
 
 export function openStore(dataDir: string): Store {
   fs.mkdirSync(dataDir, { recursive: true });
-  const sqlite = createSqliteStore(path.join(dataDir, 'life-os.db'));
+  const sqlite = createSqliteStore(path.join(dataDir, 'vyro.db'));
   if (sqlite) return sqlite;
   console.warn('[db] node:sqlite is unavailable on this Node version; using a JSON file instead.');
-  return createJsonStore(path.join(dataDir, 'life-os.json'));
+  return createJsonStore(path.join(dataDir, 'vyro.json'));
 }
 
 /** Write a dated JSON snapshot to data/backups, keeping the most recent `keep`. */
@@ -181,16 +181,16 @@ export function writeDailyBackup(store: Store, dataDir: string, keep = 14): stri
   const dir = path.join(dataDir, 'backups');
   fs.mkdirSync(dir, { recursive: true });
   const day = new Date().toISOString().slice(0, 10);
-  const file = path.join(dir, `life-os-${day}.json`);
+  const file = path.join(dir, `vyro-${day}.json`);
   if (!fs.existsSync(file)) {
     fs.writeFileSync(
       file,
-      JSON.stringify({ format: 'life-os-backup', version: 1, exportedAt: new Date().toISOString(), data: store.all() }),
+      JSON.stringify({ format: BACKUP_FORMAT, version: 1, exportedAt: new Date().toISOString(), data: store.all() }),
     );
   }
   const files = fs
     .readdirSync(dir)
-    .filter((f) => /^life-os-\d{4}-\d{2}-\d{2}\.json$/.test(f))
+    .filter((f) => /^vyro-\d{4}-\d{2}-\d{2}\.json$/.test(f))
     .sort();
   for (const old of files.slice(0, Math.max(0, files.length - keep))) fs.rmSync(path.join(dir, old));
   return file;

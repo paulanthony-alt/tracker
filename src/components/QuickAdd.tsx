@@ -36,7 +36,7 @@ export function QuickAdd({ tab: initialTab = 'task', defaults }: { tab?: QuickAd
   const [ev, setEv] = useState({ title: '', date: defaults?.date ?? today, start: '', end: '' });
   const [hb, setHb] = useState({ name: '', freq: 'daily' as 'daily' | 'weekly', target: 3 });
   const [nt, setNt] = useState({ title: '', content: '', folder: folders[0] ?? 'General' });
-  const [rm, setRm] = useState({ title: '', date: defaults?.date ?? '' });
+  const [rm, setRm] = useState({ title: '', date: defaults?.date ?? '', time: '', important: false });
   const [error, setError] = useState('');
 
   const activeClasses = useMemo(() => classes.filter((c) => !c.archived), [classes]);
@@ -84,7 +84,8 @@ export function QuickAdd({ tab: initialTab = 'task', defaults }: { tab?: QuickAd
       }
       case 'reminder': {
         if (!rm.title.trim()) return setError('What should you remember?');
-        s().create('reminders', { title: rm.title.trim(), date: opt(rm.date), done: false });
+        if (rm.time && !rm.date) return setError('Pick a date for the reminder time');
+        s().create('reminders', { title: rm.title.trim(), date: opt(rm.date), time: opt(rm.time), important: rm.important || undefined, done: false });
         toast.success('Reminder added');
         break;
       }
@@ -260,9 +261,19 @@ export function QuickAdd({ tab: initialTab = 'task', defaults }: { tab?: QuickAd
         {tab === 'reminder' && (
           <div className="space-y-3">
             <input key="r" className="input" value={rm.title} onChange={(e) => setRm({ ...rm, title: e.target.value })} placeholder="e.g. Bring permission slip" aria-label="Reminder" data-autofocus autoFocus />
-            <Field label="Date (optional)">
-              <input type="date" className="input" value={rm.date} onChange={(e) => setRm({ ...rm, date: e.target.value })} />
-            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Date">
+                <input type="date" className="input" value={rm.date} onChange={(e) => setRm({ ...rm, date: e.target.value })} />
+              </Field>
+              <Field label="Time">
+                <input type="time" className="input" value={rm.time} onChange={(e) => setRm({ ...rm, time: e.target.value, date: rm.date || today })} />
+              </Field>
+            </div>
+            <label className="flex items-center gap-2 text-[13px]">
+              <input type="checkbox" checked={rm.important} onChange={(e) => setRm({ ...rm, important: e.target.checked })} className="accent-[rgb(var(--accent))]" />
+              Important (stays on screen until you act on it)
+            </label>
+            <p className="text-xs text-faint">With a date, you’ll get a notification at that time (or at your default reminder time).</p>
           </div>
         )}
         {error && <p className="text-xs text-bad">{error}</p>}

@@ -72,7 +72,7 @@ export function Onboarding() {
         <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-accent/12 text-accent">
           <Sparkles size={20} />
         </div>
-        <h2 className="text-xl font-semibold tracking-tight">Welcome to Life OS</h2>
+        <h2 className="text-xl font-semibold tracking-tight">Welcome to Vyro</h2>
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted">One place for school, side businesses, habits, goals, tasks and notes. Everything you enter once shows up wherever it belongs.</p>
         <Field label="What should we call you?" className="mt-5">
           <input
@@ -88,7 +88,7 @@ export function Onboarding() {
         <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-line bg-surface-2 p-3 text-xs leading-relaxed text-muted">
           {mode !== 'local' ? <Database size={15} className="mt-0.5 shrink-0 text-good" /> : <HardDrive size={15} className="mt-0.5 shrink-0 text-warn" />}
           {mode === 'firebase' ? (
-            <span>Your data is saved to your own Firebase project and syncs to every device where you unlock Life OS with your password.</span>
+            <span>Your data is saved to your own Firebase project and syncs to every device where you unlock Vyro with your password.</span>
           ) : mode === 'server' ? (
             <span>Your data is saved to a private SQLite database on this computer (the <code>data/</code> folder). Nothing is sent anywhere else.</span>
           ) : (

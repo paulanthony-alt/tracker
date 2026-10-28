@@ -1,5 +1,5 @@
 /**
- * Life OS API server.
+ * Vyro API server.
  *
  *   GET  /api/health          storage + AI status
  *   GET  /api/data            every record, grouped by collection
@@ -101,7 +101,7 @@ app.post('/api/sync', (req, res) => {
 
 app.get('/api/export', (_req, res) => {
   const stamp = new Date().toISOString().slice(0, 10);
-  res.setHeader('Content-Disposition', `attachment; filename="life-os-backup-${stamp}.json"`);
+  res.setHeader('Content-Disposition', `attachment; filename="vyro-backup-${stamp}.json"`);
   res.json({ format: BACKUP_FORMAT, version: BACKUP_VERSION, exportedAt: new Date().toISOString(), data: store.all() });
 });
 
@@ -143,7 +143,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 
 app.listen(port, host, () => {
   const url = `http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`;
-  console.log(`\n  Life OS ${isProd ? 'app' : 'API'} running at ${url}`);
+  console.log(`\n  Vyro ${isProd ? 'app' : 'API'} running at ${url}`);
   console.log(`  Storage: ${store.kind} → ${path.relative(root, store.file)} (${store.count()} records)`);
   if (backupFile) console.log(`  Daily backup: ${path.relative(root, backupFile)}`);
   console.log(`  AI assistant: ${aiStatus().enabled ? `enabled (${aiStatus().model})` : 'off — set ANTHROPIC_API_KEY in .env to enable'}\n`);

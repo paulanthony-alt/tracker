@@ -3,6 +3,9 @@ import { createRoot } from 'react-dom/client';
 import '@fontsource-variable/inter';
 import './index.css';
 import { App } from './App';
+import { registerServiceWorker } from './lib/notifier';
+
+registerServiceWorker();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

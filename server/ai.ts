@@ -29,7 +29,7 @@ const chatRequest = z.object({
   today: z.string().max(80),
 });
 
-const SYSTEM_PROMPT = `You are the built-in assistant of "Life OS", a personal dashboard the user runs for school, side businesses, habits, goals, tasks and notes.
+const SYSTEM_PROMPT = `You are the built-in assistant of "Vyro", a personal dashboard the user runs for school, side businesses, habits, goals, tasks and notes.
 
 You receive a snapshot of the user's current data. Use it to:
 - summarize what is on their plate,

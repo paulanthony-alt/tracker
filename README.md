@@ -1,4 +1,4 @@
-# Life OS
+# Vyro
 
 A personal dashboard for school, side businesses, habits, goals, tasks and notes, with a dark interface by default.
 
@@ -13,10 +13,10 @@ This uses Firebase's free **Spark** plan, which needs no credit card. Your data 
 
 **One-time setup (about 10 minutes)**
 
-1. Go to [console.firebase.google.com](https://console.firebase.google.com), click **Create a project**, and give it a name (e.g. `life-os`). You can turn Google Analytics off. New projects start on the free Spark plan.
+1. Go to [console.firebase.google.com](https://console.firebase.google.com), click **Create a project**, and give it a name (e.g. `vyro`). You can turn Google Analytics off. New projects start on the free Spark plan.
 2. **Build → Authentication → Get started → Sign-in method → Email/Password → Enable → Save.** Turn on only the first switch, not "Email link".
 3. **Build → Firestore Database → Create database.** Pick a location near you and start in **production mode**. The app's own security rules replace the defaults when you deploy.
-4. **Project settings** (gear icon) **→ General → Your apps → Web (`</>`)**. Register an app called "Life OS", then copy `apiKey`, `authDomain`, `projectId` and `appId` from the config it shows.
+4. **Project settings** (gear icon) **→ General → Your apps → Web (`</>`)**. Register an app called "Vyro", then copy `apiKey`, `authDomain`, `projectId` and `appId` from the config it shows.
 5. On your computer, in this folder:
    ```bash
    cp .env.example .env      # paste the four values into the VITE_FIREBASE_* lines
@@ -33,14 +33,35 @@ This uses Firebase's free **Spark** plan, which needs no credit card. Your data 
 - **Live sync:** a change on one device appears on the others within a second or two, no refresh needed.
 - **Offline:** each device keeps a copy, so the app opens and saves without internet and syncs when you're back online. The sidebar shows *Offline — saved on device*.
 - **Settings → Account** lets you change your password or sign out. Signing out removes the offline copy from that device, which is useful on a shared computer.
-- **Forgot your password?** In the Firebase console go to **Authentication → Users**, delete the user (`lifeos-owner@example.com`), then open the app and set a new password. Your data is stored separately from the account, so nothing is lost.
+- **Forgot your password?** In the Firebase console go to **Authentication → Users**, delete the user (`vyro-owner@example.com`), then open the app and set a new password. Your data is stored separately from the account, so nothing is lost.
 - **Security:** `firestore.rules` lets only that one account read or write, and only inside the app's own data. Firebase also slows down repeated wrong-password attempts. The `VITE_FIREBASE_*` values aren't secrets; they only say which project to talk to.
 - **Free limits:** the Spark plan's daily database and hosting allowances are far above what one person's dashboard uses.
+- **Notifications on your phone when Vyro is closed** need a few extra steps. See [Notifications](#notifications).
 - **AI chat isn't available on the free plan.** Keeping an API key secret needs server code (Cloud Functions), which requires the paid Blaze plan. Everything else works, including the rule-based daily briefing, auto day-planner and weekly review. Run the local server version if you want the chat.
 - **Moving existing data:** in the old version go to **Settings → Export backup**, then in the Firebase version go to **Settings → Import backup**.
 - **Updating later:** after pulling new code, run `npm run deploy` again.
 
 **Try it without a Firebase project:** `npm run dev:emulator` runs the whole Firebase setup locally using Google's emulators (requires Java), at http://localhost:5173.
+
+## Notifications
+
+**While Vyro is open** (any version, no setup), reminders, upcoming events, tasks with a due time, a morning summary and an optional evening habit nudge pop up as cards inside the app at the exact time. If you allow it, they also appear as system notifications, so you see them from other tabs. Important reminders stay on screen until you tap Done or Snooze. Anything that came due while the app was closed is shown when you reopen it. Choose what you get in **Settings → Notifications**.
+
+**On your phone when Vyro is closed** (Firebase version, free) uses push notifications. Firebase can deliver push for free but can't *schedule* it on the free plan, so a small script on GitHub Actions checks every 30 minutes and pushes anything due in the next half hour. Notifications can arrive up to 30 minutes early, and they always show the exact time. A private repo gets 2,000 free GitHub Actions minutes a month and this uses about 1,500, so don't make it run more often.
+
+**One-time push setup** (after the Firebase setup above):
+
+1. **Firebase console → Project settings → General → Your apps:** copy `messagingSenderId` into `.env` as `VITE_FIREBASE_MESSAGING_SENDER_ID`.
+2. **Project settings → Cloud Messaging → Web Push certificates → Generate key pair:** copy the key into `.env` as `VITE_FIREBASE_VAPID_KEY`.
+3. Run `npm run deploy` again.
+4. **Project settings → Service accounts → Generate new private key.** This downloads a JSON file. In GitHub, open the repo → **Settings → Secrets and variables → Actions → New repository secret**, name it `FIREBASE_SERVICE_ACCOUNT`, paste the **whole file's contents**, save, then **delete the downloaded file**. It's a master key to your Firebase project; only GitHub should keep it.
+5. Make sure this code is on the **`main`** branch. GitHub only runs scheduled jobs from the default branch.
+6. Test it: GitHub → **Actions → Vyro reminders → Run workflow**. The log lists what it found and sent.
+7. On each phone or computer, open Vyro → **Settings → Notifications → Push to this device → Turn on**, and allow notifications.
+   - **iPhone / iPad (iOS 16.4+):** first open Vyro in Safari, tap **Share → Add to Home Screen**, then open Vyro from the home-screen icon and turn push on there. Apple only allows web push for home-screen apps.
+   - **Android:** works in Chrome directly. Adding to the home screen is optional.
+
+If a run fails with an error mentioning the Cloud Messaging API, enable **Firebase Cloud Messaging API (V1)** under Project settings → Cloud Messaging.
 
 ## Quick start
 
@@ -59,7 +80,7 @@ For development with hot reload:
 npm run dev          # web app at http://localhost:5173, API on :3001
 ```
 
-Other scripts: `npm test` (unit tests), `npm run test:rules` (Firebase security-rules tests, needs Java), `npm run typecheck`, `npm run build`, `npm run deploy` (Firebase).
+Other scripts: `npm test` (unit tests), `npm run test:rules` (Firebase security-rules and push-sender tests, needs Java), `npm run typecheck`, `npm run build`, `npm run deploy` (Firebase).
 
 ## What's inside
 
@@ -82,9 +103,9 @@ An assignment is a task with a class, and a business task is a task with a proje
 
 ## How your data is saved
 
-- **Firebase mode** (when `VITE_FIREBASE_*` is set in `.env`): data lives in Cloud Firestore at `lifeos/owner/…` in your project, with an offline copy on each signed-in device. Back up whenever you like with *Export backup*.
+- **Firebase mode** (when `VITE_FIREBASE_*` is set in `.env`): data lives in Cloud Firestore at `vyro/owner/…` in your project, with an offline copy on each signed-in device. Back up whenever you like with *Export backup*.
 
-- **Local server mode (`npm start` / `npm run dev`):** data lives in `data/life-os.db`, a SQLite database on your computer. Each change is checked and saved within about half a second. If the server goes away mid-edit, unsent changes are kept in the browser and sent automatically when it comes back.
+- **Local server mode (`npm start` / `npm run dev`):** data lives in `data/vyro.db`, a SQLite database on your computer. Each change is checked and saved within about half a second. If the server goes away mid-edit, unsent changes are kept in the browser and sent automatically when it comes back.
 - **Automatic backups:** each day the server starts, a JSON snapshot is written to `data/backups/` (the last 14 are kept). A safety snapshot is also taken before any import or full erase.
 - **Manual backups:** Settings → *Export backup (JSON)* / *Import backup*.
 - **Fallback mode:** if you open the built app without its server (for example `dist/` on a static host), it saves to that browser's `localStorage`. The sidebar shows **“Saved in this browser”** when this happens. Limitations: that data stays in that one browser on that one device, clearing site data erases it, and browsers cap storage at roughly 5 MB. Export backups regularly in this mode. If you later run the server against an empty database, browser-only data is moved into it automatically.
@@ -108,6 +129,8 @@ VITE_FIREBASE_API_KEY=    # Firebase mode: the four values from your web app con
 VITE_FIREBASE_AUTH_DOMAIN=
 VITE_FIREBASE_PROJECT_ID=
 VITE_FIREBASE_APP_ID=
+VITE_FIREBASE_MESSAGING_SENDER_ID=  # optional: push notifications (see Notifications)
+VITE_FIREBASE_VAPID_KEY=
 ANTHROPIC_API_KEY=        # local server only: enables the AI assistant
 ANTHROPIC_MODEL=claude-opus-5-5
 PORT=3000                 # production server port
@@ -129,6 +152,9 @@ server/                 Express API, SQLite storage, AI proxy (local server mode
 firestore.rules         Firebase security rules (owner-only access)
 firebase.json           Firebase Hosting + emulator config
 scripts/deploy.mjs      `npm run deploy`: build + publish to Firebase
+scripts/reminders/      push sender run by .github/workflows/reminders.yml
+shared/notifications.ts what's due when (used by the app and the push sender)
+public/sw.js            service worker: shows push notifications
 src/lib/                store, persistence, grades, priority, habits, recurrence, insights, quick-add parser
 src/components/         UI primitives, editors, task rows, charts, command palette, quick add
 src/widgets/            dashboard widgets

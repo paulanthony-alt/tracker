@@ -8,8 +8,10 @@ import { ConfirmHost } from '@/components/ui/Modal';
 import { CommandPalette } from '@/components/CommandPalette';
 import { QuickAdd } from '@/components/QuickAdd';
 import { TaskEditor } from '@/components/editors/TaskEditor';
-import { ClassEditor, EventEditor, GoalEditor, HabitEditor, ProjectEditor } from '@/components/editors/Editors';
+import { ClassEditor, EventEditor, GoalEditor, HabitEditor, ProjectEditor, ReminderEditor } from '@/components/editors/Editors';
 import { Onboarding } from '@/components/Onboarding';
+import { AlertStack } from '@/components/AlertStack';
+import { browserTimeZone, startNotifier } from '@/lib/notifier';
 import { FirebaseGate } from '@/components/Login';
 import { firebaseEnabled } from '@/lib/firebaseConfig';
 import { Button } from '@/components/ui/primitives';
@@ -42,6 +44,8 @@ function ModalHost() {
       return <ClassEditor key={modal.id ?? 'new'} id={modal.id} />;
     case 'project':
       return <ProjectEditor key={modal.id ?? 'new'} id={modal.id} />;
+    case 'reminder':
+      return <ReminderEditor key={modal.id ?? 'new'} id={modal.id} />;
   }
 }
 
@@ -156,6 +160,13 @@ function Main() {
   useEffect(() => {
     void useStore.getState().init();
   }, []);
+  useEffect(() => {
+    if (!ready || loadError) return;
+    // Remember this device's time zone so scheduled push reminders fire at your local time.
+    const tz = browserTimeZone();
+    if (useStore.getState().settings.timeZone !== tz) useStore.getState().updateSettings({ timeZone: tz });
+    startNotifier();
+  }, [ready, loadError]);
 
   if (!ready)
     return (
@@ -185,6 +196,7 @@ function Main() {
       </Shell>
       <ModalHost />
       <CommandPalette />
+      <AlertStack />
       <ConfirmHost />
       <Onboarding />
       <Toaster />

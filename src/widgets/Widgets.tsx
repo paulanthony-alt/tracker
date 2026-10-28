@@ -569,7 +569,9 @@ export function RemindersWidget() {
   const create = useStore((s) => s.create);
   const remove = useStore((s) => s.remove);
   const today = useToday();
-  const open = reminders.filter((r) => !r.done).sort((a, b) => (a.date ?? '9999').localeCompare(b.date ?? '9999'));
+  const open = reminders
+    .filter((r) => !r.done)
+    .sort((a, b) => Number(!!b.important) - Number(!!a.important) || `${a.date ?? '9999'}${a.time ?? ''}`.localeCompare(`${b.date ?? '9999'}${b.time ?? ''}`));
   return (
     <div>
       {open.length === 0 && <p className="py-2 text-[13px] text-faint">No reminders. Jot down anything you need to remember.</p>}
@@ -586,8 +588,16 @@ export function RemindersWidget() {
               round
               size={16}
             />
-            <span className="min-w-0 flex-1 truncate text-[13px]">{r.title}</span>
-            {r.date && <span className={cn('text-xs', r.date < today ? 'text-bad' : r.date === today ? 'text-accent' : 'text-faint')}>{formatRelativeDay(r.date, today)}</span>}
+            <button type="button" onClick={() => openModal({ kind: 'reminder', id: r.id })} className="flex min-w-0 flex-1 items-center gap-1.5 text-left" title="Edit reminder">
+              {r.important && <Star size={12} className="shrink-0 text-warn" fill="currentColor" aria-label="Important" />}
+              <span className="truncate text-[13px] hover:text-accent">{r.title}</span>
+            </button>
+            {r.date && (
+              <span className={cn('shrink-0 text-xs', r.date < today ? 'text-bad' : r.date === today ? 'text-accent' : 'text-faint')}>
+                {formatRelativeDay(r.date, today)}
+                {r.time && ` · ${formatTime(r.time)}`}
+              </span>
+            )}
             <IconButton label="Delete reminder" size="xs" className="opacity-0 group-hover:opacity-100" onClick={() => remove('reminders', r.id)}>
               <X size={13} />
             </IconButton>

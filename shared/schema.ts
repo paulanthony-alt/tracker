@@ -1,5 +1,5 @@
 /**
- * The Life OS data model. Shared by the browser and the server so both sides
+ * The Vyro data model. Shared by the browser and the server so both sides
  * validate records against exactly the same rules.
  *
  * Design rule: every piece of information is stored once. An assignment is a
@@ -255,6 +255,9 @@ export const reminderSchema = z.object({
   ...base,
   title: text(300).min(1, 'Reminder text is required'),
   date: isoDate.optional(),
+  /** Time of day to notify (local). Without one, the default reminder time is used. */
+  time: isoTime.optional(),
+  important: z.boolean().optional(),
   done: z.boolean(),
 });
 export type Reminder = z.infer<typeof reminderSchema>;
@@ -357,6 +360,23 @@ export const widgetConfigSchema = z.object({
 });
 export type WidgetConfig = z.infer<typeof widgetConfigSchema>;
 
+export const notificationPrefsSchema = z.object({
+  /** Master switch for all reminders and alerts. */
+  enabled: z.boolean(),
+  reminders: z.boolean(),
+  /** When a reminder has a date but no time. */
+  defaultReminderTime: isoTime,
+  /** Minutes before an event starts; null = off. */
+  eventLeadMinutes: z.number().int().min(0).max(1440).nullable(),
+  /** Minutes before a task with a due time; null = off. */
+  taskLeadMinutes: z.number().int().min(0).max(1440).nullable(),
+  /** Morning summary of what's due; null = off. */
+  digestTime: isoTime.nullable(),
+  /** Evening nudge for unfinished daily habits; null = off. */
+  habitNudgeTime: isoTime.nullable(),
+});
+export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>;
+
 export const settingsSchema = z.object({
   ...base,
   name: text(60),
@@ -373,6 +393,9 @@ export const settingsSchema = z.object({
   pastTerms: z.array(pastTermSchema).max(40),
   /** Upcoming-deadline alert window in days. */
   alertDays: z.number().int().min(1).max(30),
+  notifications: notificationPrefsSchema.optional(),
+  /** IANA time zone (e.g. "America/New_York"), so reminders can be sent at your local time. */
+  timeZone: text(64).optional(),
 });
 export type Settings = z.infer<typeof settingsSchema>;
 
@@ -426,7 +449,9 @@ export const syncOpSchema = z.discriminatedUnion('op', [
 ]);
 export type SyncOp = z.infer<typeof syncOpSchema>;
 
-export const BACKUP_FORMAT = 'life-os-backup';
+export const BACKUP_FORMAT = 'vyro-backup';
+/** Backups made before the app was renamed to Vyro still import. */
+const LEGACY_BACKUP_FORMATS: unknown[] = ['life-os-backup'];
 export const BACKUP_VERSION = 1;
 
 export interface Backup {
@@ -445,8 +470,8 @@ export function validateBackup(input: unknown):
   | { ok: false; error: string } {
   if (!input || typeof input !== 'object') return { ok: false, error: 'File is not a JSON object.' };
   const obj = input as Record<string, unknown>;
-  if (obj.format !== BACKUP_FORMAT || typeof obj.data !== 'object' || !obj.data) {
-    return { ok: false, error: 'This does not look like a Life OS backup file.' };
+  if ((obj.format !== BACKUP_FORMAT && !LEGACY_BACKUP_FORMATS.includes(obj.format)) || typeof obj.data !== 'object' || !obj.data) {
+    return { ok: false, error: 'This does not look like a Vyro backup file.' };
   }
   const raw = obj.data as Record<string, unknown>;
   const data = {} as DataSnapshot;
