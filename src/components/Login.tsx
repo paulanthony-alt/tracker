@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Eye, EyeOff, Loader2, Lock } from 'lucide-react';
 import type { User } from 'firebase/auth';
 import { MIN_PASSWORD_LENGTH, OWNER_EMAIL } from '@/lib/firebaseConfig';
-import { BrandMark } from './BrandMark';
+import { BootScreen, BrandMark } from './BrandMark';
 import { Button } from './ui/primitives';
 
 const loadFirebase = () => import('@/lib/firebase');
@@ -60,19 +60,26 @@ export function LoginScreen() {
   return (
     <div className="flex min-h-full items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
-        <div className="mb-6 flex flex-col items-center text-center">
-          <BrandMark full className="mb-4 h-24 w-24 rounded-[22px] shadow-pop" />
-          <h1 className="text-xl font-semibold tracking-tight">{mode === 'create' ? 'Set your password' : 'Vyro'}</h1>
-          <p className="mt-1 text-[13px] text-muted">{mode === 'create' ? 'This password unlocks Vyro on all your devices.' : 'Enter your password to continue.'}</p>
+        <div className="mb-7 flex flex-col items-center text-center">
+          <div className="relative mb-6">
+            <div className="absolute -inset-10 rounded-full bg-accent/25 blur-3xl" aria-hidden />
+            <BrandMark full className="relative h-24 w-24 rounded-[22px] shadow-pop" />
+          </div>
+          <p className="eyebrow mb-2 flex items-center gap-2 text-accent/90">
+            <span className="led text-accent" aria-hidden />
+            {mode === 'create' ? 'First-time setup' : 'Secure access'}
+          </p>
+          <h1 className="text-2xl font-semibold tracking-[-0.02em]">{mode === 'create' ? 'Set your password' : 'Welcome back'}</h1>
+          <p className="mt-1.5 text-[13px] text-muted">{mode === 'create' ? 'This password unlocks Vyro on all your devices.' : 'Enter your password to continue.'}</p>
         </div>
-        <form onSubmit={submit} className="card space-y-3 p-5" noValidate>
+        <form onSubmit={submit} className="card hud space-y-3 p-5" noValidate>
           {/* Hidden username so password managers save and fill this login correctly. */}
           <input type="email" name="username" autoComplete="username" value={OWNER_EMAIL} readOnly hidden />
           <PasswordInput id="password" value={password} onChange={setPassword} placeholder={mode === 'create' ? 'New password' : 'Password'} autoComplete={mode === 'create' ? 'new-password' : 'current-password'} autoFocus />
           {mode === 'create' && <PasswordInput id="password-confirm" value={confirm} onChange={setConfirm} placeholder="Confirm password" autoComplete="new-password" />}
           {mode === 'create' && <p className="text-xs text-faint">At least {MIN_PASSWORD_LENGTH} characters. You’ll stay signed in on each device until you sign out.</p>}
           {error && (
-            <p role="alert" className="rounded-lg border border-bad/25 bg-bad/10 px-3 py-2 text-[13px] text-bad">
+            <p role="alert" className="rounded-md border border-bad/30 bg-bad/10 px-3 py-2 text-[13px] text-bad">
               {error}
             </p>
           )}
@@ -92,7 +99,7 @@ export function LoginScreen() {
           )}
         </div>
         {mode === 'signin' && (
-          <details className="mx-auto mt-6 max-w-xs text-center text-xs text-faint">
+          <details className="mx-auto mt-5 max-w-xs text-center text-xs text-faint">
             <summary className="cursor-pointer hover:text-fg">Forgot your password?</summary>
             <p className="mt-2 leading-relaxed">
               In the Firebase console, open Authentication → Users, delete the Vyro user, then come back here and choose “Set your password”. Your data is kept.
@@ -135,9 +142,7 @@ export function FirebaseGate({ children }: { children: ReactNode }) {
     );
   if (user === 'loading')
     return (
-      <div className="flex h-full items-center justify-center text-faint">
-        <Loader2 className="animate-spin" size={20} />
-      </div>
+      <BootScreen />
     );
   if (!user) return <LoginScreen />;
   return <>{children}</>;

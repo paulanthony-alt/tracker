@@ -58,6 +58,27 @@ const MoreLink = ({ href, children }: { href: string; children: React.ReactNode 
 
 // ---------------------------------------------------------------------------
 
+/** One telemetry readout in the briefing strip. */
+function Readout({ label, value, sub, tone, href }: { label: string; value: React.ReactNode; sub?: React.ReactNode; tone?: 'good' | 'warn' | 'bad' | 'accent'; href?: string }) {
+  const body = (
+    <>
+      <p className="eyebrow">{label}</p>
+      <p className={cn('readout mt-1.5 text-[26px] font-medium leading-none', tone === 'good' && 'text-good', tone === 'warn' && 'text-warn', tone === 'bad' && 'text-bad', tone === 'accent' && 'text-accent')}>{value}</p>
+      {sub && <p className="mt-1.5 truncate text-xs text-faint">{sub}</p>}
+    </>
+  );
+  const cls = 'block min-w-0 px-4 py-3';
+  return href ? (
+    <a href={href} className={cn(cls, 'transition-colors hover:bg-surface-2/60')}>
+      {body}
+    </a>
+  ) : (
+    <div className={cls}>{body}</div>
+  );
+}
+
+const countdown = (mins: number) => (mins <= 0 ? 'now' : mins < 60 ? `in ${mins} min` : `in ${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, '0')}m`);
+
 export function BriefingWidget() {
   const s = useAll();
   const today = useToday();
@@ -68,78 +89,54 @@ export function BriefingWidget() {
   const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
   const nextEvent = events.find((o) => o.event.startTime && timeToMinutes(o.event.endTime ?? o.event.startTime) >= nowMin);
   const overdueCount = s.tasks.filter((t) => isOpen(t) && t.dueDate && t.dueDate < today).length;
+  const dueToday = s.tasks.filter((t) => isOpen(t) && t.dueDate === today).length;
 
   const pct = completion.pct;
   return (
-    <div className="flex flex-col gap-5 md:flex-row md:items-stretch">
-      <div className="flex items-center gap-4 md:w-[280px] md:shrink-0 md:border-r md:border-line md:pr-5">
-        <ProgressRing value={pct} size={84} stroke={7} label={`Today ${pct === null ? 'no items' : `${Math.round(pct)}% complete`}`}>
-          <div className="text-center">
-            <p className="text-lg font-semibold leading-5 tabular-nums">{pct === null ? '—' : `${Math.round(pct)}%`}</p>
-            <p className="text-[10px] text-faint">today</p>
+    <div className="-mx-4 -mt-3.5">
+      {/* Telemetry strip */}
+      <div className="grid grid-cols-2 border-b border-line/70 sm:grid-cols-[auto_repeat(4,minmax(0,1fr))] [&>*]:border-line/70 max-sm:[&>*:nth-child(2n+3)]:border-l max-sm:[&>*:nth-child(n+2)]:border-t sm:[&>*+*]:border-l">
+        <div className="col-span-2 flex items-center gap-4 px-4 py-3 sm:col-span-1 sm:pr-6">
+          <ProgressRing value={pct} size={88} stroke={6} label={`Today ${pct === null ? 'no items' : `${Math.round(pct)}% complete`}`}>
+            <div className="text-center">
+              <p className="readout text-xl font-medium leading-5">{pct === null ? '—' : `${Math.round(pct)}`}<span className="text-xs text-faint">{pct === null ? '' : '%'}</span></p>
+              <p className="mt-0.5 font-mono text-[8.5px] uppercase tracking-[0.18em] text-faint">today</p>
+            </div>
+          </ProgressRing>
+          <div className="min-w-0">
+            <p className="eyebrow">Day progress</p>
+            <p className="mt-1 text-[13px] leading-snug text-muted">
+              {pct === null ? 'Nothing scheduled to finish today.' : pct >= 100 ? 'Everything for today is done.' : `${completion.total - completion.done} of ${completion.total} items left today.`}
+            </p>
           </div>
-        </ProgressRing>
-        <div className="min-w-0 space-y-1.5 text-[13px]">
-          <p className="text-muted">
-            <span className="font-semibold text-fg tabular-nums">
-              {completion.tasks.done}/{completion.tasks.total}
-            </span>{' '}
-            tasks done
-          </p>
-          <p className="text-muted">
-            <span className="font-semibold text-fg tabular-nums">
-              {completion.habits.done}/{completion.habits.total}
-            </span>{' '}
-            habits checked
-          </p>
-          {overdueCount > 0 ? (
-            <p className="font-medium text-bad">{plural(overdueCount, 'overdue item')}</p>
-          ) : (
-            <p className="text-good">Nothing overdue</p>
-          )}
         </div>
+        <Readout label="Tasks" value={<>{completion.tasks.done}<span className="text-base text-faint">/{completion.tasks.total}</span></>} sub={dueToday ? `${dueToday} due today` : 'None due today'} href="#/tasks" />
+        <Readout label="Habits" value={<>{completion.habits.done}<span className="text-base text-faint">/{completion.habits.total}</span></>} sub={completion.habits.total ? 'checked today' : 'No daily habits'} href="#/habits" />
+        <Readout label="Overdue" value={overdueCount} tone={overdueCount ? 'bad' : 'good'} sub={overdueCount ? plural(overdueCount, 'item') + ' past due' : 'All clear'} href="#/tasks?view=overdue" />
+        <Readout
+          label="Next event"
+          value={nextEvent ? formatTime(nextEvent.event.startTime) : '—'}
+          tone={nextEvent ? 'accent' : undefined}
+          sub={nextEvent ? `${nextEvent.event.title} · ${countdown(timeToMinutes(nextEvent.event.startTime!) - nowMin)}` : 'Nothing else today'}
+          href="#/calendar?view=day"
+        />
       </div>
 
-      <div className="grid min-w-0 flex-1 gap-4 sm:grid-cols-2">
+      <div className="grid min-w-0 gap-5 px-4 pt-4 md:grid-cols-2">
         <div className="min-w-0">
           <p className="eyebrow mb-2">Focus next</p>
           {next ? (
-            <button type="button" onClick={() => openModal({ kind: 'task', id: next.task.id })} className="w-full rounded-xl border border-line bg-surface-2 px-3 py-2.5 text-left transition-colors hover:border-line-strong">
-              <p className="truncate text-[13.5px] font-medium">{next.task.title}</p>
-              <p className="mt-0.5 truncate text-xs text-faint">{next.p.reasons.join(' · ') || 'Highest priority open task'}</p>
+            <button
+              type="button"
+              onClick={() => openModal({ kind: 'task', id: next.task.id })}
+              className="group relative w-full overflow-hidden rounded-lg border border-accent/25 bg-accent/[0.06] px-3.5 py-3 text-left transition-colors hover:border-accent/50"
+            >
+              <span className="absolute inset-y-0 left-0 w-[3px] bg-accent shadow-[0_0_12px_rgb(var(--accent))]" aria-hidden />
+              <p className="truncate text-[14px] font-medium">{next.task.title}</p>
+              <p className="mt-0.5 truncate text-xs text-muted">{next.p.reasons.join(' · ') || 'Highest priority open task'}</p>
             </button>
           ) : (
             <p className="text-[13px] text-faint">No open tasks. Add one with the New button.</p>
-          )}
-          <p className="eyebrow mb-1.5 mt-4">Next on your calendar</p>
-          {nextEvent ? (
-            <p className="truncate text-[13px]">
-              <span className="font-medium tabular-nums text-accent">{formatTime(nextEvent.event.startTime)}</span> <span className="text-muted">{nextEvent.event.title}</span>
-            </p>
-          ) : (
-            <p className="text-[13px] text-faint">Nothing else scheduled today.</p>
-          )}
-        </div>
-        <div className="min-w-0">
-          <div className="mb-2 flex items-center justify-between">
-            <p className="eyebrow">Alerts</p>
-            {alerts.length > 4 && <span className="text-xs text-faint">+{alerts.length - 4} more</span>}
-          </div>
-          {alerts.length === 0 ? (
-            <p className="text-[13px] text-faint">You’re all caught up.</p>
-          ) : (
-            <ul className="space-y-1">
-              {alerts.slice(0, 4).map((a) => (
-                <li key={a.id}>
-                  <a href={a.href} className="flex items-start gap-2 rounded-lg py-1 text-[13px] hover:text-fg">
-                    <span className={cn('mt-0.5 shrink-0', a.level === 'critical' ? 'text-bad' : a.level === 'warning' ? 'text-warn' : 'text-accent')}>
-                      {a.level === 'info' ? <Info size={14} /> : <AlertTriangle size={14} />}
-                    </span>
-                    <span className="min-w-0 truncate text-muted">{a.title}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
           )}
           <div className="mt-3 flex flex-wrap gap-2">
             <a href="#/habits?tab=plan">
@@ -153,6 +150,31 @@ export function BriefingWidget() {
               </Button>
             </a>
           </div>
+        </div>
+        <div className="min-w-0">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="eyebrow">Alerts</p>
+            {alerts.length > 4 && <span className="font-mono text-[10.5px] text-faint">+{alerts.length - 4} more</span>}
+          </div>
+          {alerts.length === 0 ? (
+            <p className="flex items-center gap-2 text-[13px] text-muted">
+              <span className="led text-good" aria-hidden /> You’re all caught up.
+            </p>
+          ) : (
+            <ul className="divide-y divide-line/60 rounded-lg border border-line/70">
+              {alerts.slice(0, 4).map((a) => (
+                <li key={a.id}>
+                  <a href={a.href} className="flex items-center gap-2.5 px-3 py-2 text-[13px] transition-colors hover:bg-surface-2/60">
+                    <span className={cn('shrink-0', a.level === 'critical' ? 'text-bad' : a.level === 'warning' ? 'text-warn' : 'text-accent')}>
+                      {a.level === 'info' ? <Info size={14} /> : <AlertTriangle size={14} />}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-muted">{a.title}</span>
+                    <ArrowRight size={12} className="shrink-0 text-faint" />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>

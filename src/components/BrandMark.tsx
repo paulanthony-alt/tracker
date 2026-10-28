@@ -20,3 +20,19 @@ export function BrandLockup({ className }: { className?: string }) {
     </span>
   );
 }
+
+/** Full-screen loading state while Vyro starts up. */
+export function BootScreen({ label = 'Initializing' }: { label?: string }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4" role="status" aria-label="Loading">
+      <div className="relative">
+        <div className="absolute -inset-6 animate-pulse rounded-full bg-accent/20 blur-2xl" aria-hidden />
+        <BrandMark className="relative h-12 w-12 rounded-xl" />
+      </div>
+      <p className="eyebrow flex items-center gap-2">
+        <span className="led animate-pulse text-accent" aria-hidden />
+        {label}
+      </p>
+    </div>
+  );
+}

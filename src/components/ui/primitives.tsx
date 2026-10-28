@@ -6,16 +6,17 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'subtle';
 type Size = 'xs' | 'sm' | 'md';
 
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-accent text-accent-fg hover:brightness-110 active:brightness-95 shadow-[0_1px_0_0_rgb(255_255_255/0.15)_inset]',
-  secondary: 'bg-surface-2 text-fg border border-line hover:bg-surface-3 hover:border-line-strong',
+  primary:
+    'bg-accent text-accent-fg shadow-glow [background-image:linear-gradient(180deg,rgb(255_255_255/0.14),transparent)] hover:brightness-110 active:brightness-95',
+  secondary: 'bg-surface-2/80 text-fg border border-line hover:border-accent/45 hover:bg-surface-3',
   subtle: 'bg-surface-2 text-muted hover:text-fg hover:bg-surface-3',
   ghost: 'text-muted hover:text-fg hover:bg-surface-2',
-  danger: 'bg-bad/10 text-bad border border-bad/25 hover:bg-bad/20',
+  danger: 'bg-bad/10 text-bad border border-bad/30 hover:bg-bad/20',
 };
 const SIZES: Record<Size, string> = {
   xs: 'h-7 px-2 text-xs gap-1 rounded-md',
-  sm: 'h-8 px-3 text-[13px] gap-1.5 rounded-lg',
-  md: 'h-9 px-3.5 text-sm gap-2 rounded-lg',
+  sm: 'h-8 px-3 text-[13px] gap-1.5 rounded-md',
+  md: 'h-9 px-3.5 text-sm gap-2 rounded-md',
 };
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -78,16 +79,16 @@ export function Card({
   return (
     <section className={cn('card flex min-w-0 flex-col', className)}>
       {(title || action) && (
-        <header className="flex min-h-[52px] items-center gap-2 px-4 pt-3">
-          {icon && <span className="text-faint">{icon}</span>}
+        <header className="flex min-h-[46px] items-center gap-2.5 border-b border-line/70 px-4 py-2">
+          {icon ? <span className="text-accent/90 [&>svg]:h-[14px] [&>svg]:w-[14px]">{icon}</span> : <span className="h-3 w-[3px] shrink-0 rounded-full bg-accent shadow-[0_0_8px_rgb(var(--accent)/0.8)]" aria-hidden />}
           <div className="min-w-0 flex-1">
-            {title && <h2 className="truncate text-[13px] font-semibold tracking-tight">{title}</h2>}
+            {title && <h2 className="truncate font-mono text-[11px] font-semibold uppercase tracking-[0.12em] text-fg/90">{title}</h2>}
             {subtitle && <p className="truncate text-xs text-faint">{subtitle}</p>}
           </div>
           {action}
         </header>
       )}
-      <div className={cn('flex-1 px-4 pb-4 pt-2', bodyClassName)}>{children}</div>
+      <div className={cn('flex-1 px-4 pb-4 pt-3.5', bodyClassName)}>{children}</div>
     </section>
   );
 }
@@ -104,14 +105,14 @@ export function Badge({
   dot?: string;
 }) {
   const tones = {
-    neutral: 'bg-surface-3 text-muted',
-    accent: 'bg-accent/12 text-accent',
-    good: 'bg-good/12 text-good',
-    warn: 'bg-warn/12 text-warn',
-    bad: 'bg-bad/12 text-bad',
+    neutral: 'border-line-strong/70 bg-surface-3/60 text-muted',
+    accent: 'border-accent/30 bg-accent/10 text-accent',
+    good: 'border-good/30 bg-good/10 text-good',
+    warn: 'border-warn/30 bg-warn/10 text-warn',
+    bad: 'border-bad/30 bg-bad/10 text-bad',
   };
   return (
-    <span className={cn('inline-flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded-md px-1.5 text-[11px] font-medium', tones[tone], className)}>
+    <span className={cn('inline-flex h-5 shrink-0 items-center gap-1 whitespace-nowrap rounded border px-1.5 text-[11px] font-medium', tones[tone], className)}>
       {dot && <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />}
       {children}
     </span>
@@ -149,7 +150,7 @@ export function Checkbox({
       className={cn(
         'group relative inline-flex shrink-0 items-center justify-center border-[1.5px] transition-all duration-150',
         round ? 'rounded-full' : 'rounded-[6px]',
-        checked ? 'border-transparent' : 'border-line-strong hover:border-faint',
+        checked ? 'border-transparent shadow-[0_0_10px_-2px_rgb(var(--accent)/0.7)]' : 'border-line-strong hover:border-accent/60',
         className,
       )}
       style={{ width: size, height: size, background: checked ? color ?? 'rgb(var(--accent))' : undefined }}
@@ -157,24 +158,27 @@ export function Checkbox({
       <Check
         strokeWidth={3.2}
         className={cn('transition-all duration-150', checked ? 'scale-100 opacity-100' : 'scale-50 opacity-0 group-hover:scale-75 group-hover:opacity-30')}
-        style={{ width: size * 0.62, height: size * 0.62, color: checked ? '#0b0b0d' : 'rgb(var(--faint))' }}
+        style={{ width: size * 0.62, height: size * 0.62, color: checked ? (color ? '#0b0b0d' : 'rgb(var(--accent-fg))') : 'rgb(var(--faint))' }}
       />
     </button>
   );
 }
 
-export function ProgressBar({ value, color, className, height = 6 }: { value: number | null; color?: string; className?: string; height?: number }) {
+export function ProgressBar({ value, color, className, height = 5 }: { value: number | null; color?: string; className?: string; height?: number }) {
   const v = value === null ? 0 : Math.max(0, Math.min(100, value));
   return (
     <div
-      className={cn('w-full overflow-hidden rounded-full bg-surface-3', className)}
+      className={cn('w-full overflow-hidden rounded-full bg-surface-3 shadow-[inset_0_0_0_1px_rgb(var(--line)/0.6)]', className)}
       style={{ height }}
       role="progressbar"
       aria-valuenow={Math.round(v)}
       aria-valuemin={0}
       aria-valuemax={100}
     >
-      <div className="h-full rounded-full transition-[width] duration-500 ease-out" style={{ width: `${v}%`, background: color ?? 'rgb(var(--accent))' }} />
+      <div
+        className="h-full rounded-full transition-[width] duration-500 ease-out"
+        style={{ width: `${v}%`, background: color ?? 'linear-gradient(90deg, rgb(var(--accent) / 0.75), rgb(var(--accent)))', boxShadow: `0 0 10px -1px ${color ?? 'rgb(var(--accent) / 0.8)'}` }}
+      />
     </div>
   );
 }
@@ -199,7 +203,7 @@ export function ProgressRing({
   const v = value === null ? 0 : Math.max(0, Math.min(100, value));
   return (
     <div className="relative inline-flex shrink-0 items-center justify-center" style={{ width: size, height: size }} role="img" aria-label={label}>
-      <svg width={size} height={size} className="-rotate-90">
+      <svg width={size} height={size} className="-rotate-90 overflow-visible">
         <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgb(var(--surface-3))" strokeWidth={stroke} />
         <circle
           cx={size / 2}
@@ -212,7 +216,10 @@ export function ProgressRing({
           strokeDasharray={c}
           strokeDashoffset={c - (v / 100) * c}
           className="transition-[stroke-dashoffset] duration-700 ease-out"
+          style={{ filter: `drop-shadow(0 0 ${Math.max(3, stroke * 0.8)}px ${color ?? 'rgb(var(--accent) / 0.75)'})` }}
         />
+        {/* Thin gaps every 9° split the ring into segments, like a gauge. */}
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgb(var(--surface))" strokeWidth={stroke + 2} strokeDasharray={`1.2 ${(c / 40 - 1.2).toFixed(3)}`} />
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">{children}</div>
     </div>
@@ -233,7 +240,7 @@ export function Tabs<T extends string>({
   size?: 'sm' | 'md';
 }) {
   return (
-    <div role="tablist" className={cn('inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl border border-line bg-surface p-1', className)}>
+    <div role="tablist" className={cn('inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-lg border border-line bg-surface/80 p-0.5', className)}>
       {options.map((o) => (
         <button
           key={o.value}
@@ -242,14 +249,14 @@ export function Tabs<T extends string>({
           aria-selected={value === o.value}
           onClick={() => onChange(o.value)}
           className={cn(
-            'inline-flex shrink-0 items-center gap-1.5 rounded-lg font-medium transition-colors',
+            'inline-flex shrink-0 items-center gap-1.5 rounded-md font-medium transition-colors',
             size === 'sm' ? 'h-7 px-2.5 text-xs' : 'h-8 px-3 text-[13px]',
-            value === o.value ? 'bg-surface-3 text-fg shadow-sm' : 'text-muted hover:text-fg',
+            value === o.value ? 'bg-surface-3 text-fg shadow-[inset_0_-1.5px_0_rgb(var(--accent)),0_1px_0_rgb(255_255_255/0.03)_inset]' : 'text-muted hover:bg-surface-2 hover:text-fg',
           )}
         >
           {o.label}
           {o.count !== undefined && o.count > 0 && (
-            <span className={cn('rounded px-1 text-[10px] tabular-nums', value === o.value ? 'bg-surface-2 text-muted' : 'bg-surface-2 text-faint')}>{o.count}</span>
+            <span className={cn('rounded px-1 font-mono text-[10px] tabular-nums', value === o.value ? 'bg-accent/15 text-accent' : 'bg-surface-2 text-faint')}>{o.count}</span>
           )}
         </button>
       ))}
@@ -272,7 +279,7 @@ export function EmptyState({
 }) {
   return (
     <div className={cn('flex flex-col items-center justify-center text-center', compact ? 'py-6' : 'py-14')}>
-      {icon && <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-surface-2 text-faint">{icon}</div>}
+      {icon && <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg border border-line bg-surface-2 text-accent/80 shadow-[0_0_24px_-8px_rgb(var(--accent)/0.6)]">{icon}</div>}
       <p className="text-sm font-medium">{title}</p>
       {children && <div className="mt-1 max-w-sm text-[13px] leading-relaxed text-faint">{children}</div>}
       {action && <div className="mt-4">{action}</div>}
@@ -280,14 +287,16 @@ export function EmptyState({
   );
 }
 
-export function PageHeader({ title, subtitle, actions }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({ title, subtitle, actions, kicker }: { title: ReactNode; subtitle?: ReactNode; actions?: ReactNode; kicker?: ReactNode }) {
   return (
-    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+    <div className="relative mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-line pb-4">
       <div className="min-w-0">
-        <h1 className="text-[22px] font-semibold tracking-tight">{title}</h1>
+        {kicker && <p className="eyebrow mb-1.5 text-accent/90">{kicker}</p>}
+        <h1 className="text-[26px] font-semibold leading-tight tracking-[-0.02em]">{title}</h1>
         {subtitle && <p className="mt-1 text-[13px] text-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      <span className="absolute -bottom-px left-0 h-px w-24 bg-accent shadow-[0_0_10px_rgb(var(--accent))]" aria-hidden />
     </div>
   );
 }
@@ -295,8 +304,8 @@ export function PageHeader({ title, subtitle, actions }: { title: ReactNode; sub
 export function Stat({ label, value, sub, tone }: { label: string; value: ReactNode; sub?: ReactNode; tone?: 'good' | 'warn' | 'bad' }) {
   return (
     <div className="card px-4 py-3.5">
-      <p className="text-xs text-muted">{label}</p>
-      <p className={cn('mt-1 text-xl font-semibold tracking-tight', tone === 'good' && 'text-good', tone === 'warn' && 'text-warn', tone === 'bad' && 'text-bad')}>{value}</p>
+      <p className="eyebrow">{label}</p>
+      <p className={cn('readout mt-1.5 text-2xl font-semibold', tone === 'good' && 'text-good', tone === 'warn' && 'text-warn', tone === 'bad' && 'text-bad')}>{value}</p>
       {sub && <p className="mt-0.5 truncate text-xs text-faint">{sub}</p>}
     </div>
   );

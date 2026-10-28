@@ -9,60 +9,67 @@
 :root,
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: 9 9 11;
-  --surface: 17 17 19;
-  --surface-2: 24 24 27;
-  --surface-3: 33 33 37;
-  --line: 36 36 40;
-  --line-strong: 50 50 56;
-  --fg: 237 237 239;
-  --muted: 161 161 170;
-  --faint: 113 113 122;
-  --accent: 79 140 255;
+  /* Blue-black instrument panel. */
+  --bg: 5 7 11;
+  --surface: 10 13 19;
+  --surface-2: 15 19 27;
+  --surface-3: 22 28 39;
+  --line: 28 35 48;
+  --line-strong: 42 52 70;
+  --fg: 230 236 245;
+  --muted: 150 162 182;
+  --faint: 98 110 130;
+  /* The electric blue of the Vyro mark. */
+  --accent: 59 130 255;
   --accent-fg: 255 255 255;
-  --good: 52 211 153;
-  --warn: 245 165 36;
-  --bad: 248 113 113;
+  --info: 34 211 238;
+  --good: 45 212 160;
+  --warn: 245 181 68;
+  --bad: 255 92 108;
+  --grid: 148 170 210;
 }
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --bg: 246 246 247;
+  --bg: 243 245 249;
   --surface: 255 255 255;
-  --surface-2: 243 243 245;
-  --surface-3: 233 233 237;
-  --line: 228 228 231;
-  --line-strong: 212 212 216;
-  --fg: 24 24 27;
-  --muted: 82 82 91;
-  --faint: 128 128 138;
-  --accent: 37 99 235;
+  --surface-2: 248 249 252;
+  --surface-3: 236 239 245;
+  --line: 224 228 236;
+  --line-strong: 203 210 222;
+  --fg: 13 18 28;
+  --muted: 72 83 102;
+  --faint: 118 129 148;
+  --accent: 29 100 240;
   --accent-fg: 255 255 255;
+  --info: 8 145 178;
   --good: 5 150 105;
   --warn: 202 110 4;
   --bad: 220 38 38;
+  --grid: 30 50 90;
 }
 
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
     color-scheme: light;
-    --bg: 246 246 247;
+    --bg: 243 245 249;
     --surface: 255 255 255;
-    --surface-2: 243 243 245;
-    --surface-3: 233 233 237;
-    --line: 228 228 231;
-    --line-strong: 212 212 216;
-    --fg: 24 24 27;
-    --muted: 82 82 91;
-    --faint: 128 128 138;
+    --surface-2: 248 249 252;
+    --surface-3: 236 239 245;
+    --line: 224 228 236;
+    --line-strong: 203 210 222;
+    --fg: 13 18 28;
+    --muted: 72 83 102;
+    --faint: 118 129 148;
+    --grid: 30 50 90;
   }
 }
 
-:root[data-accent='green'] { --accent: 52 211 153; --accent-fg: 4 30 20; }
-:root[data-accent='violet'] { --accent: 167 139 250; --accent-fg: 20 12 48; }
-:root[data-accent='amber'] { --accent: 245 165 36; --accent-fg: 40 22 0; }
+:root[data-accent='green'] { --accent: 45 212 160; --accent-fg: 3 26 19; }
+:root[data-accent='violet'] { --accent: 150 125 255; --accent-fg: 255 255 255; }
+:root[data-accent='amber'] { --accent: 245 181 68; --accent-fg: 38 22 0; }
 :root[data-theme='light'][data-accent='green'] { --accent: 5 150 105; --accent-fg: 255 255 255; }
-:root[data-theme='light'][data-accent='violet'] { --accent: 124 58 237; --accent-fg: 255 255 255; }
+:root[data-theme='light'][data-accent='violet'] { --accent: 109 64 230; --accent-fg: 255 255 255; }
 :root[data-theme='light'][data-accent='amber'] { --accent: 202 110 4; --accent-fg: 255 255 255; }
 
 @layer base {
@@ -79,6 +86,32 @@
     @apply bg-bg font-sans text-[14px] text-fg antialiased;
     font-feature-settings: 'cv11', 'ss01', 'ss03';
     -webkit-tap-highlight-color: transparent;
+    /* A faint glow from the top, like light from a display. */
+    background-image:
+      radial-gradient(1100px 520px at 12% -12%, rgb(var(--accent) / 0.11), transparent 62%),
+      radial-gradient(800px 420px at 105% -5%, rgb(var(--info) / 0.05), transparent 60%);
+    background-repeat: no-repeat;
+  }
+  /* Fine engineering grid behind everything, fading out toward the bottom. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgb(var(--grid) / 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--grid) / 0.045) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 35%, transparent 80%);
+    mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 35%, transparent 80%);
+  }
+  #root {
+    position: relative;
+  }
+  .font-mono,
+  code,
+  kbd {
+    font-feature-settings: 'zero' 0, 'calt' 0;
   }
   ::selection {
     background: rgb(var(--accent) / 0.3);
@@ -111,11 +144,41 @@
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-line bg-surface;
+    @apply rounded-xl border border-line bg-surface;
+    background-image: linear-gradient(180deg, rgb(var(--surface-2)) 0%, rgb(var(--surface)) 140px);
+    box-shadow: inset 0 1px 0 0 rgb(255 255 255 / 0.035), 0 1px 2px 0 rgb(0 0 0 / 0.25);
+  }
+  /* Corner brackets that frame a key panel, like a heads-up display. */
+  .hud {
+    position: relative;
+  }
+  .hud::after {
+    --c: rgb(var(--accent) / 0.75);
+    --l: 14px;
+    content: '';
+    position: absolute;
+    inset: -5px;
+    pointer-events: none;
+    background:
+      linear-gradient(var(--c), var(--c)) top left / var(--l) 1px,
+      linear-gradient(var(--c), var(--c)) top left / 1px var(--l),
+      linear-gradient(var(--c), var(--c)) top right / var(--l) 1px,
+      linear-gradient(var(--c), var(--c)) top right / 1px var(--l),
+      linear-gradient(var(--c), var(--c)) bottom left / var(--l) 1px,
+      linear-gradient(var(--c), var(--c)) bottom left / 1px var(--l),
+      linear-gradient(var(--c), var(--c)) bottom right / var(--l) 1px,
+      linear-gradient(var(--c), var(--c)) bottom right / 1px var(--l);
+    background-repeat: no-repeat;
+  }
+  /* Tiny status light. */
+  .led {
+    @apply inline-block h-1.5 w-1.5 shrink-0 rounded-full;
+    box-shadow: 0 0 0 2px rgb(var(--bg)), 0 0 8px 0 currentColor;
+    background: currentColor;
   }
   .input {
-    @apply h-9 w-full rounded-lg border border-line bg-surface-2 px-3 text-sm text-fg placeholder:text-faint
-      transition-colors hover:border-line-strong focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/20;
+    @apply h-9 w-full rounded-lg border border-line bg-bg/60 px-3 text-sm text-fg placeholder:text-faint
+      transition-colors hover:border-line-strong focus:border-accent/70 focus:outline-none focus:ring-2 focus:ring-accent/20;
   }
   textarea.input {
     @apply h-auto py-2 leading-relaxed;
@@ -128,8 +191,12 @@
   .label {
     @apply mb-1.5 block text-xs font-medium text-muted;
   }
+  /* Section labels: small monospaced capitals, like instrument markings. */
   .eyebrow {
-    @apply text-2xs font-semibold uppercase tracking-[0.08em] text-faint;
+    @apply font-mono text-[10.5px] font-medium uppercase leading-4 tracking-[0.14em] text-faint;
+  }
+  .readout {
+    @apply font-mono tabular-nums tracking-tight;
   }
   .kbd {
     @apply inline-flex h-5 min-w-5 items-center justify-center rounded border border-line bg-surface-2 px-1 font-mono text-[10px] text-faint;

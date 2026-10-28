@@ -37,8 +37,8 @@ export function ColumnChart({
         {/* gridlines */}
         <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
           {ticks.map((t, i) => (
-            <div key={i} className={cn('relative border-t', i === ticks.length - 1 ? 'border-line-strong' : 'border-line')}>
-              <span className="absolute -top-2 right-full mr-1.5 text-[10px] tabular-nums text-faint">{Number.isInteger(t) ? t : t.toFixed(1)}</span>
+            <div key={i} className={cn('relative border-t', i === ticks.length - 1 ? 'border-line-strong' : 'border-dashed border-line')}>
+              <span className="absolute -top-2 right-full mr-1.5 font-mono text-[10px] tabular-nums text-faint">{Number.isInteger(t) ? t : t.toFixed(1)}</span>
             </div>
           ))}
         </div>
@@ -55,7 +55,11 @@ export function ColumnChart({
               aria-label={`${d.label}: ${format(d.value)}${d.detail ? `, ${d.detail}` : ''}`}
             >
               <div
-                className={cn('w-full max-w-[24px] rounded-t-[4px] transition-[height,opacity] duration-500 ease-out', d.highlight ? 'bg-accent' : 'bg-accent/45', hover !== null && hover !== i && 'opacity-60')}
+                className={cn(
+                  'w-full max-w-[24px] rounded-t-[3px] border-t-2 border-accent bg-gradient-to-t transition-[height,opacity] duration-500 ease-out',
+                  d.highlight ? 'from-accent/35 to-accent shadow-[0_0_16px_-2px_rgb(var(--accent)/0.7)]' : 'from-accent/[0.06] to-accent/45',
+                  hover !== null && hover !== i && 'opacity-60',
+                )}
                 style={{ height: `${(d.value / top) * 100}%`, minHeight: d.value > 0 ? 3 : 0 }}
               />
               {hover === i && (
@@ -73,7 +77,7 @@ export function ColumnChart({
       </div>
       <div className="ml-5 mt-1.5 flex justify-around gap-1">
         {data.map((d) => (
-          <span key={d.key} className={cn('flex-1 text-center text-[11px]', d.highlight ? 'font-medium text-fg' : 'text-faint')}>
+          <span key={d.key} className={cn('flex-1 text-center font-mono text-[10px] uppercase', d.highlight ? 'font-medium text-accent' : 'text-faint')}>
             {d.label}
           </span>
         ))}

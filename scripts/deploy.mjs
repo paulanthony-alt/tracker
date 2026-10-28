@@ -32,6 +32,8 @@ const run = (cmd, args) => {
   if (r.status !== 0) process.exit(r.status ?? 1);
 };
 
+// Picks up any packages added since your last `git pull`, so updates just work.
+run('npm', ['install', '--no-audit', '--no-fund']);
 run('npm', ['run', 'build']);
 run('npx', ['firebase', 'deploy', '--only', 'hosting,firestore:rules', '--project', project]);
 console.log(`\n  Live at https://${project}.web.app — open it and choose “Set your password”.\n`);

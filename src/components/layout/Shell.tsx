@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { create } from 'zustand';
 import {
   AlertTriangle,
@@ -38,15 +38,17 @@ import { Button, IconButton } from '../ui/primitives';
 import { Popover } from '../ui/Field';
 
 const NAV = [
-  { href: '#/', id: '', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '#/tasks', id: 'tasks', label: 'Tasks', icon: CheckSquare },
-  { href: '#/calendar', id: 'calendar', label: 'Calendar', icon: CalendarDays },
-  { href: '#/school', id: 'school', label: 'School', icon: GraduationCap },
-  { href: '#/business', id: 'business', label: 'Business', icon: Briefcase },
-  { href: '#/habits', id: 'habits', label: 'Habits & Goals', icon: Flame },
-  { href: '#/notes', id: 'notes', label: 'Notes', icon: NotebookPen },
-  { href: '#/assistant', id: 'assistant', label: 'Assistant', icon: Sparkles },
+  { href: '#/', id: '', label: 'Dashboard', icon: LayoutDashboard, group: 'Overview' },
+  { href: '#/tasks', id: 'tasks', label: 'Tasks', icon: CheckSquare, group: 'Overview' },
+  { href: '#/calendar', id: 'calendar', label: 'Calendar', icon: CalendarDays, group: 'Overview' },
+  { href: '#/school', id: 'school', label: 'School', icon: GraduationCap, group: 'Areas' },
+  { href: '#/business', id: 'business', label: 'Business', icon: Briefcase, group: 'Areas' },
+  { href: '#/habits', id: 'habits', label: 'Habits & Goals', icon: Flame, group: 'Areas' },
+  { href: '#/notes', id: 'notes', label: 'Notes', icon: NotebookPen, group: 'Tools' },
+  { href: '#/assistant', id: 'assistant', label: 'Assistant', icon: Sparkles, group: 'Tools' },
 ];
+const GROUPS = ['Overview', 'Areas', 'Tools'] as const;
+const sectionLabel = (id: string) => (id === 'settings' ? 'Settings' : (NAV.find((n) => n.id === id)?.label ?? 'Dashboard'));
 
 function useBadges() {
   const today = useToday();
@@ -73,16 +75,16 @@ function SyncIndicator({ collapsed }: { collapsed: boolean }) {
     mode === 'local'
       ? { icon: <HardDrive size={14} />, text: 'Saved in this browser', tone: 'text-warn', title: 'No server connected — data is stored in this browser only. Export backups from Settings.' }
       : status === 'saving'
-        ? { icon: <Loader2 size={14} className="animate-spin" />, text: 'Saving…', tone: 'text-faint', title: 'Saving to the database' }
+        ? { icon: <Loader2 size={14} className="animate-spin" />, text: 'Saving…', tone: 'text-info', title: 'Saving to the database' }
         : status === 'offline'
           ? { icon: <CloudOff size={14} />, text: mode === 'firebase' ? 'Offline — saved on device' : 'Offline — changes queued', tone: 'text-warn', title: mode === 'firebase' ? 'You’re offline. Changes are saved on this device and sync when you reconnect.' : `Can’t reach the server (${detail ?? 'network'}). Changes are kept and will sync automatically.` }
           : status === 'error'
             ? { icon: <AlertTriangle size={14} />, text: 'Some changes rejected', tone: 'text-bad', title: detail ?? 'The server rejected a change' }
-            : { icon: <Cloud size={14} />, text: mode === 'firebase' ? 'Synced' : 'All changes saved', tone: 'text-faint', title: mode === 'firebase' ? 'Saved to your Firebase account and synced to your devices' : 'Saved to the local database' };
+            : { icon: <Cloud size={14} />, text: mode === 'firebase' ? 'Synced' : 'All changes saved', tone: 'text-good', title: mode === 'firebase' ? 'Saved to your Firebase account and synced to your devices' : 'Saved to the local database' };
   return (
-    <a href="#/settings" title={info.title} className={cn('flex h-8 items-center gap-2 rounded-lg px-2.5 text-xs hover:bg-surface-2', info.tone, collapsed && 'justify-center px-0')}>
-      {info.icon}
-      {!collapsed && <span className="truncate">{info.text}</span>}
+    <a href="#/settings" title={info.title} className={cn('flex h-8 items-center gap-2.5 rounded-md px-2.5 hover:bg-surface-2', collapsed && 'justify-center px-0')}>
+      <span className={cn('led', info.tone, status === 'saving' && 'animate-pulse')} aria-hidden />
+      {!collapsed && <span className={cn('truncate font-mono text-[10.5px] uppercase tracking-[0.12em]', info.tone === 'text-good' ? 'text-muted' : info.tone)}>{info.text}</span>}
     </a>
   );
 }
@@ -96,8 +98,8 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
 
   return (
     <div className="flex h-full flex-col">
-      <div className={cn('flex h-14 items-center gap-2.5 px-4', collapsed && 'justify-center px-0')}>
-        <BrandMark className="h-8 w-8 rounded-lg" />
+      <div className={cn('flex h-14 shrink-0 items-center gap-2.5 border-b border-line px-4', collapsed && 'justify-center px-0')}>
+        <BrandMark className="h-8 w-8 rounded-lg shadow-[0_0_18px_-4px_rgb(var(--accent)/0.7)]" />
         {!collapsed && (
           <div className="min-w-0">
             <Wordmark className="mb-1 block h-2.5 text-fg" />
@@ -106,42 +108,50 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
         )}
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2.5 py-2" aria-label="Main">
-        {NAV.map((item) => {
-          const active = section === item.id;
-          const count = badgeFor(item.id);
-          return (
-            <a
-              key={item.id}
-              href={item.href}
-              onClick={onNavigate}
-              aria-current={active ? 'page' : undefined}
-              title={collapsed ? item.label : undefined}
-              className={cn(
-                'group relative flex h-9 items-center gap-3 rounded-lg px-2.5 text-[13px] font-medium transition-colors',
-                active ? 'bg-surface-3 text-fg' : 'text-muted hover:bg-surface-2 hover:text-fg',
-                collapsed && 'justify-center px-0',
-              )}
-            >
-              <item.icon size={17} className={cn('shrink-0', active ? 'text-accent' : 'text-faint group-hover:text-muted')} />
-              {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
-              {count > 0 &&
-                (collapsed ? (
-                  <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-bad" />
-                ) : (
-                  <span className={cn('rounded-md px-1.5 text-[11px] tabular-nums', item.id === 'school' || badges.overdue ? 'bg-bad/15 text-bad' : 'bg-surface-3 text-muted')}>{count}</span>
-                ))}
-            </a>
-          );
-        })}
+      <nav className="flex-1 overflow-y-auto px-2.5 pb-2 pt-3" aria-label="Main">
+        {GROUPS.map((group) => (
+          <div key={group} className="mb-3">
+            {collapsed ? <div className="mx-auto mb-1.5 h-px w-6 bg-line" /> : <p className="eyebrow mb-1 px-2.5 text-[10px]">{group}</p>}
+            <div className="space-y-0.5">
+              {NAV.filter((n) => n.group === group).map((item) => {
+                const active = section === item.id;
+                const count = badgeFor(item.id);
+                return (
+                  <a
+                    key={item.id}
+                    href={item.href}
+                    onClick={onNavigate}
+                    aria-current={active ? 'page' : undefined}
+                    title={collapsed ? item.label : undefined}
+                    className={cn(
+                      'group relative flex h-9 items-center gap-3 rounded-md px-2.5 text-[13px] font-medium transition-colors',
+                      active ? 'bg-gradient-to-r from-accent/[0.16] to-accent/[0.02] text-fg shadow-[inset_0_0_0_1px_rgb(var(--accent)/0.18)]' : 'text-muted hover:bg-surface-2 hover:text-fg',
+                      collapsed && 'justify-center px-0',
+                    )}
+                  >
+                    {active && <span className="absolute -left-2.5 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r bg-accent shadow-[0_0_12px_rgb(var(--accent))]" aria-hidden />}
+                    <item.icon size={17} className={cn('shrink-0', active ? 'text-accent drop-shadow-[0_0_6px_rgb(var(--accent)/0.7)]' : 'text-faint group-hover:text-muted')} />
+                    {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+                    {count > 0 &&
+                      (collapsed ? (
+                        <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-bad" />
+                      ) : (
+                        <span className={cn('rounded border px-1.5 font-mono text-[10.5px] tabular-nums', item.id === 'school' || badges.overdue ? 'border-bad/30 bg-bad/10 text-bad' : 'border-line-strong bg-surface-3 text-muted')}>{count}</span>
+                      ))}
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
-      <div className="space-y-0.5 border-t border-line px-2.5 py-2.5">
+      <div className="space-y-0.5 border-t border-line px-2.5 pb-2.5 pt-2">
         <SyncIndicator collapsed={collapsed} />
         <a
           href="#/settings"
           onClick={onNavigate}
-          className={cn('flex h-9 items-center gap-3 rounded-lg px-2.5 text-[13px] font-medium', section === 'settings' ? 'bg-surface-3 text-fg' : 'text-muted hover:bg-surface-2 hover:text-fg', collapsed && 'justify-center px-0')}
+          className={cn('flex h-9 items-center gap-3 rounded-md px-2.5 text-[13px] font-medium', section === 'settings' ? 'bg-gradient-to-r from-accent/[0.16] to-accent/[0.02] text-fg shadow-[inset_0_0_0_1px_rgb(var(--accent)/0.18)]' : 'text-muted hover:bg-surface-2 hover:text-fg', collapsed && 'justify-center px-0')}
           title={collapsed ? 'Settings' : undefined}
         >
           <Settings size={17} className="text-faint" />
@@ -151,7 +161,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
           <button
             type="button"
             onClick={toggleCollapsed}
-            className={cn('hidden h-9 w-full items-center gap-3 rounded-lg px-2.5 text-[13px] text-faint hover:bg-surface-2 hover:text-fg lg:flex', collapsed && 'justify-center px-0')}
+            className={cn('hidden h-9 w-full items-center gap-3 rounded-md px-2.5 text-[13px] text-faint hover:bg-surface-2 hover:text-fg lg:flex', collapsed && 'justify-center px-0')}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
@@ -194,7 +204,7 @@ function AlertsButton() {
       trigger={({ toggle, ref }) => (
         <IconButton ref={ref} label={`Alerts (${alerts.length})`} onClick={toggle} className="relative">
           <Bell size={17} />
-          {alerts.length > 0 && <span className={cn('absolute right-1.5 top-1.5 h-2 w-2 rounded-full ring-2 ring-bg', urgent ? 'bg-bad' : 'bg-accent')} />}
+          {alerts.length > 0 && <span className={cn('led absolute right-1.5 top-1.5', urgent ? 'text-bad' : 'text-accent')} />}
         </IconButton>
       )}
     >
@@ -222,7 +232,30 @@ function AlertsButton() {
   );
 }
 
+/** Live local time for the header, ticking every second. */
+function Clock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const time = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+  const [clock, ampm] = time.split(/\s(?=[AP]M$)/i);
+  return (
+    <div className="hidden items-center gap-3 border-r border-line pr-3 md:flex" aria-label={`Local time ${time}`}>
+      <div className="text-right leading-none">
+        <p className="readout text-[15px] font-medium text-fg">
+          {clock}
+          {ampm && <span className="ml-1 text-[10px] text-faint">{ampm}</span>}
+        </p>
+        <p className="mt-1 font-mono text-[9.5px] uppercase tracking-[0.16em] text-faint">{now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}</p>
+      </div>
+    </div>
+  );
+}
+
 export function Shell({ children }: { children: ReactNode }) {
+  const section = useRoute().path[0] ?? '';
   const collapsed = useLayout((s) => s.collapsed);
   const mobileOpen = useUI((s) => s.mobileNavOpen);
   const setMobile = useUI((s) => s.setMobileNav);
@@ -232,7 +265,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex h-full">
-      <aside className={cn('hidden shrink-0 border-r border-line bg-surface/60 transition-[width] duration-200 lg:block', collapsed ? 'w-[64px]' : 'w-[232px]')}>
+      <aside className={cn('hidden shrink-0 border-r border-line bg-surface/70 backdrop-blur-sm transition-[width] duration-200 lg:block', collapsed ? 'w-[64px]' : 'w-[236px]')}>
         <SidebarContent collapsed={collapsed} />
       </aside>
 
@@ -249,23 +282,29 @@ export function Shell({ children }: { children: ReactNode }) {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-line bg-bg/85 px-3 backdrop-blur-md sm:px-5">
+        <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b border-line bg-bg/75 px-3 backdrop-blur-md sm:gap-3 sm:px-5">
           <IconButton label="Open menu" className="lg:hidden" onClick={() => setMobile(true)}>
             <Menu size={18} />
           </IconButton>
           <a href="#/" aria-label="Vyro home" className="shrink-0 lg:hidden">
             <BrandLockup />
           </a>
+          <p className="hidden shrink-0 items-center gap-2 font-mono text-[11px] uppercase tracking-[0.14em] lg:flex">
+            <span className="text-faint">Vyro</span>
+            <span className="text-line-strong">/</span>
+            <span className="text-fg">{sectionLabel(section)}</span>
+          </p>
           <button
             type="button"
             onClick={() => setPalette(true)}
-            className="hidden h-9 min-w-0 max-w-md flex-1 items-center sm:flex gap-2.5 rounded-lg border border-line bg-surface px-3 text-left text-[13px] text-faint transition-colors hover:border-line-strong hover:text-muted"
+            className="hidden h-9 min-w-0 max-w-md flex-1 items-center gap-2.5 rounded-md border border-line bg-surface/70 px-3 text-left text-[13px] text-faint transition-colors hover:border-accent/40 hover:text-muted sm:flex lg:ml-4"
           >
             <Search size={15} className="shrink-0" />
             <span className="flex-1 truncate">Search everything…</span>
             <span className="kbd hidden sm:inline-flex">{isMac ? '⌘' : 'Ctrl'} K</span>
           </button>
           <div className="ml-auto flex items-center gap-1">
+            <Clock />
             <IconButton label="Search" className="sm:hidden" onClick={() => setPalette(true)}>
               <Search size={17} />
             </IconButton>
@@ -289,7 +328,7 @@ export function Toaster() {
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-[70] flex flex-col items-center gap-2 px-4 sm:bottom-6 sm:items-end sm:px-6" aria-live="polite">
       {toasts.map((t) => (
-        <div key={t.id} className="pointer-events-auto flex max-w-sm animate-toast-in items-center gap-2.5 rounded-xl border border-line-strong bg-surface-2 px-3.5 py-2.5 text-[13px] shadow-pop">
+        <div key={t.id} className="pointer-events-auto flex max-w-sm animate-toast-in items-center gap-2.5 rounded-lg border border-line-strong bg-surface-2/95 px-3.5 py-2.5 text-[13px] shadow-pop backdrop-blur">
           {t.kind === 'success' ? <CheckCircle2 size={16} className="shrink-0 text-good" /> : t.kind === 'error' ? <AlertTriangle size={16} className="shrink-0 text-bad" /> : <Info size={16} className="shrink-0 text-accent" />}
           <span className="flex-1">{t.message}</span>
           {t.action && (

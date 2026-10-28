@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { AlertTriangle, Loader2 } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { useUI } from '@/lib/ui';
 import { navigate, useRoute } from '@/lib/router';
@@ -13,6 +13,7 @@ import { Onboarding } from '@/components/Onboarding';
 import { AlertStack } from '@/components/AlertStack';
 import { browserTimeZone, startNotifier } from '@/lib/notifier';
 import { startImports } from '@/lib/imports';
+import { BootScreen } from '@/components/BrandMark';
 import { FirebaseGate } from '@/components/Login';
 import { firebaseEnabled } from '@/lib/firebaseConfig';
 import { Button } from '@/components/ui/primitives';
@@ -173,9 +174,7 @@ function Main() {
 
   if (!ready)
     return (
-      <div className="flex h-full items-center justify-center text-faint">
-        <Loader2 className="animate-spin" size={20} />
-      </div>
+      <BootScreen />
     );
   if (loadError)
     return (

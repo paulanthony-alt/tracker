@@ -3,7 +3,8 @@ import { ArrowDown, ArrowUp, Eye, EyeOff, GripVertical, LayoutGrid, RotateCcw, C
 import type { WidgetConfig, WidgetId } from '@shared/schema';
 import { useStore } from '@/lib/store';
 import { useToday } from '@/lib/useToday';
-import { formatLong, greeting } from '@/lib/dates';
+import { format, getISOWeek } from 'date-fns';
+import { formatLong, fromISO, greeting } from '@/lib/dates';
 import { DEFAULT_WIDGETS, WIDGET_META } from '@/lib/defaults';
 import { cn } from '@/lib/util';
 import { Button, Card, IconButton } from '@/components/ui/primitives';
@@ -90,12 +91,20 @@ export function Dashboard() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-[13px] text-faint">{formatLong(today)}</p>
-          <h1 className="mt-0.5 text-[24px] font-semibold tracking-tight">
+      <div className="relative mb-6 flex flex-wrap items-end justify-between gap-3 border-b border-line pb-4">
+        <div className="min-w-0">
+          <p className="eyebrow mb-1.5 flex items-center gap-2 text-accent/90">
+            <span className="led text-accent" aria-hidden />
+            <span>Command center</span>
+            <span className="text-faint">·</span>
+            <span className="hidden sm:inline">{formatLong(today)}</span>
+            <span className="sm:hidden">{format(fromISO(today), 'EEE, MMM d')}</span>
+            <span className="text-faint">·</span>
+            <span>Wk {getISOWeek(fromISO(today))}</span>
+          </p>
+          <h1 className="text-[28px] font-semibold leading-tight tracking-[-0.02em] sm:text-[32px]">
             {greeting()}
-            {settings.name ? `, ${settings.name}` : ''}
+            {settings.name ? <span className="text-muted">, {settings.name}</span> : ''}
           </h1>
         </div>
         <div className="flex items-center gap-2">
@@ -108,6 +117,7 @@ export function Dashboard() {
             {editing ? 'Done' : 'Customize'}
           </Button>
         </div>
+        <span className="absolute -bottom-px left-0 h-px w-24 bg-accent shadow-[0_0_10px_rgb(var(--accent))]" aria-hidden />
       </div>
 
       <SampleBanner />
@@ -136,7 +146,7 @@ export function Dashboard() {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {visible.map((w, i) => {
             const Comp = COMPONENTS[w.id];
             const meta = WIDGET_META[w.id];
@@ -151,7 +161,7 @@ export function Dashboard() {
                 onDrop={() => dropOn(w.id)}
               >
                 <Card
-                  className={cn('h-full', editing && 'ring-1 ring-accent/30')}
+                  className={cn('h-full', w.id === 'briefing' && 'hud', editing && 'ring-1 ring-accent/30')}
                   title={meta.title}
                   action={
                     editing ? (
@@ -171,8 +181,8 @@ export function Dashboard() {
                         </IconButton>
                       </div>
                     ) : LINKS[w.id] ? (
-                      <a href={LINKS[w.id]} className="text-xs text-faint hover:text-fg">
-                        Open
+                      <a href={LINKS[w.id]} className="font-mono text-[10.5px] uppercase tracking-[0.12em] text-faint hover:text-accent">
+                        Open →
                       </a>
                     ) : undefined
                   }
