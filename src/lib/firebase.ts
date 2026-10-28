@@ -28,6 +28,7 @@ import {
   setDoc,
   connectFirestoreEmulator,
   doc,
+  getDoc,
   getDocs,
   initializeFirestore,
   memoryLocalCache,
@@ -39,6 +40,7 @@ import {
   type Firestore,
 } from 'firebase/firestore';
 import { COLLECTIONS, emptySnapshot, type CollectionName, type DataSnapshot, type SyncOp } from '@shared/schema';
+import type { ImportState } from '@shared/imports';
 import { firebaseConfig, firebaseVapidKey, OWNER_EMAIL, pushConfigured, useFirebaseEmulator } from './firebaseConfig';
 import { PUSH_FLAG_KEY } from './notifier';
 
@@ -329,4 +331,55 @@ export async function removeDevice(id: string) {
     localStorage.removeItem(DEVICE_ID_KEY);
     localStorage.removeItem(PUSH_FLAG_KEY);
   }
+}
+
+// ---------------------------------------------------------------------------
+// Google Classroom / Calendar connection (see shared/imports.ts)
+// ---------------------------------------------------------------------------
+
+const linksDoc = (id: 'key' | 'state') => doc(db, 'vyro', 'owner', 'links', id);
+const inboxCollection = () => collection(db, 'vyro', 'owner', 'inbox');
+
+/** What the Google sync script last sent, one document per account and source. */
+export function watchInbox(cb: (docs: unknown[]) => void): () => void {
+  start();
+  return onSnapshot(
+    inboxCollection(),
+    (snap) => cb(snap.docs.map((d) => d.data())),
+    () => cb([]),
+  );
+}
+
+export function watchSyncKey(cb: (key: string | null) => void): () => void {
+  start();
+  return onSnapshot(
+    linksDoc('key'),
+    (snap) => cb(snap.exists() ? ((snap.data().key as string) ?? null) : null),
+    () => cb(null),
+  );
+}
+
+/** A new random sync key. Scripts holding an older key stop working. */
+export async function createSyncKey(): Promise<string> {
+  start();
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const key = [...crypto.getRandomValues(new Uint8Array(48))].map((b) => alphabet[b % alphabet.length]).join('');
+  await setDoc(linksDoc('key'), { id: 'key', key, createdAt: Date.now() });
+  return key;
+}
+
+export async function readImportState(): Promise<ImportState> {
+  start();
+  const snap = await getDoc(linksDoc('state'));
+  return (snap.exists() ? (snap.data().imported as ImportState) : undefined) ?? {};
+}
+
+export async function writeImportState(imported: ImportState): Promise<void> {
+  start();
+  await setDoc(linksDoc('state'), { id: 'state', imported, updatedAt: Date.now() });
+}
+
+export async function removeInbox(id: string): Promise<void> {
+  start();
+  await deleteDoc(doc(inboxCollection(), id));
 }

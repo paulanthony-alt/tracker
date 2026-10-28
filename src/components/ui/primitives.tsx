@@ -76,7 +76,7 @@ export function Card({
   bodyClassName?: string;
 }) {
   return (
-    <section className={cn('card flex flex-col', className)}>
+    <section className={cn('card flex min-w-0 flex-col', className)}>
       {(title || action) && (
         <header className="flex min-h-[52px] items-center gap-2 px-4 pt-3">
           {icon && <span className="text-faint">{icon}</span>}

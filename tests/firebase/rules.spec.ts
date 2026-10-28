@@ -67,4 +67,45 @@ describe('firestore.rules', () => {
     const otherProvider = env.authenticatedContext('x', { email: OWNER_EMAIL, firebase: { sign_in_provider: 'custom' } }).firestore();
     await assertFails(getDoc(doc(otherProvider, 'vyro/owner/tasks/t1')));
   });
+
+  describe('Google sync inbox', () => {
+    const KEY = 'k'.repeat(40);
+    const inbox = (id: string, key = KEY, extra: Record<string, unknown> = {}) => ({ id, key, source: id.split('-')[0], syncedAt: 1, items: [], ...extra });
+    const anon = () => env.unauthenticatedContext().firestore();
+    beforeEach(async () => {
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'vyro/owner/links/key'), { id: 'key', key: KEY });
+      });
+    });
+
+    it('accepts a signed-out write that carries the sync key', async () => {
+      await assertSucceeds(setDoc(doc(anon(), 'vyro/owner/inbox/calendar-abc123'), inbox('calendar-abc123')));
+      await assertSucceeds(setDoc(doc(anon(), 'vyro/owner/inbox/classroom-abc123'), inbox('classroom-abc123', KEY, { account: 'me@school.org', from: '2026-10-01', to: '2027-01-01' })));
+    });
+
+    it('rejects a wrong key, a missing key document, or reads', async () => {
+      await assertFails(setDoc(doc(anon(), 'vyro/owner/inbox/calendar-abc123'), inbox('calendar-abc123', 'x'.repeat(40))));
+      await assertFails(getDoc(doc(anon(), 'vyro/owner/inbox/calendar-abc123')));
+      await assertFails(getDoc(doc(anon(), 'vyro/owner/links/key')));
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        await deleteDoc(doc(ctx.firestore(), 'vyro/owner/links/key'));
+      });
+      await assertFails(setDoc(doc(anon(), 'vyro/owner/inbox/calendar-abc123'), inbox('calendar-abc123')));
+    });
+
+    it('rejects odd document ids, extra fields, oversized lists and other collections', async () => {
+      await assertFails(setDoc(doc(anon(), 'vyro/owner/inbox/tasks-abc123'), inbox('tasks-abc123')));
+      await assertFails(setDoc(doc(anon(), 'vyro/owner/inbox/calendar-abc123'), inbox('calendar-abc123', KEY, { source: 'classroom' })));
+      await assertFails(setDoc(doc(anon(), 'vyro/owner/inbox/calendar-abc123'), inbox('calendar-abc123', KEY, { extra: true })));
+      await assertFails(setDoc(doc(anon(), 'vyro/owner/inbox/calendar-abc123'), inbox('calendar-abc123', KEY, { items: Array(601).fill({}) })));
+      await assertFails(setDoc(doc(anon(), 'vyro/owner/tasks/t1'), { ...task('t1'), key: KEY }));
+    });
+
+    it('lets the owner read and clear the inbox and manage the key', async () => {
+      await assertSucceeds(setDoc(doc(owner(), 'vyro/owner/links/key'), { id: 'key', key: 'n'.repeat(40) }));
+      await assertSucceeds(setDoc(doc(anon(), 'vyro/owner/inbox/calendar-abc123'), inbox('calendar-abc123', 'n'.repeat(40))));
+      await assertSucceeds(getDoc(doc(owner(), 'vyro/owner/inbox/calendar-abc123')));
+      await assertSucceeds(deleteDoc(doc(owner(), 'vyro/owner/inbox/calendar-abc123')));
+    });
+  });
 });

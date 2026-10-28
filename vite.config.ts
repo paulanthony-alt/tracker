@@ -31,5 +31,7 @@ export default defineConfig({
   test: {
     // Firebase rules tests need the emulator: run them with `npm run test:rules`.
     include: process.env.FIREBASE_TESTS ? ['tests/firebase/**/*.spec.ts'] : ['tests/**/*.test.ts'],
+    // Those files share one emulator and clear it between tests, so run them one at a time.
+    fileParallelism: !process.env.FIREBASE_TESTS,
   },
 });

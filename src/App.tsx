@@ -12,6 +12,7 @@ import { ClassEditor, EventEditor, GoalEditor, HabitEditor, ProjectEditor, Remin
 import { Onboarding } from '@/components/Onboarding';
 import { AlertStack } from '@/components/AlertStack';
 import { browserTimeZone, startNotifier } from '@/lib/notifier';
+import { startImports } from '@/lib/imports';
 import { FirebaseGate } from '@/components/Login';
 import { firebaseEnabled } from '@/lib/firebaseConfig';
 import { Button } from '@/components/ui/primitives';
@@ -167,6 +168,8 @@ function Main() {
     if (useStore.getState().settings.timeZone !== tz) useStore.getState().updateSettings({ timeZone: tz });
     startNotifier();
   }, [ready, loadError]);
+  // Bring in Google Classroom and Calendar (Settings → Connections) once your data has loaded.
+  useEffect(() => (ready && !loadError ? startImports() : undefined), [ready, loadError]);
 
   if (!ready)
     return (

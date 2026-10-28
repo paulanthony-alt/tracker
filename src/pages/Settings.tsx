@@ -13,6 +13,7 @@ import { Modal, confirmAction } from '@/components/ui/Modal';
 import { Field, Segmented } from '@/components/ui/Field';
 import { loadSampleData, removeSampleDataWithConfirm } from '@/components/Onboarding';
 import { NotificationSettings } from '@/components/NotificationSettings';
+import { ConnectionsSettings } from '@/components/ConnectionsSettings';
 
 export async function exportBackup() {
   const data = useStore.getState().snapshot();
@@ -167,6 +168,8 @@ export function SettingsPage() {
         </Card>
 
         <NotificationSettings />
+
+        <ConnectionsSettings />
 
         {s.storageMode === 'firebase' && <AccountCard />}
 

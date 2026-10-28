@@ -19,7 +19,15 @@ service cloud.firestore {
       return name in ['tasks', 'classes', 'projects', 'habits', 'goals', 'events',
                       'reminders', 'notes', 'journal', 'dayPlans', 'reviews', 'settings',
                       // Devices registered for push notifications (written by the app).
-                      'devices'];
+                      'devices',
+                      // Google Classroom / Calendar connection: the sync key and import
+                      // bookkeeping (links), and what the Google sync script sent (inbox).
+                      'links', 'inbox'];
+    }
+
+    // The sync key the Google script must present. Lives in vyro/owner/links/key.
+    function syncKey() {
+      return get(/databases/$(database)/documents/vyro/owner/links/key).data.key;
     }
 
     match /vyro/owner/{collection}/{docId} {
@@ -27,6 +35,21 @@ service cloud.firestore {
       // Every record must carry its own id, matching the document id.
       allow create, update: if isOwner() && knownCollection(collection)
         && request.resource.data.id == docId;
+    }
+
+    // The Google Apps Script isn't signed in to Vyro. It may only replace its own
+    // inbox document, and only with the secret sync key shown in Settings →
+    // Connections. It can't read anything, and can't touch your real records.
+    match /vyro/owner/inbox/{docId} {
+      allow create, update: if docId.matches('^(classroom|calendar)-[a-z0-9]{6,40}$')
+        && request.resource.data.keys().hasOnly(['id', 'key', 'source', 'account', 'syncedAt', 'from', 'to', 'items'])
+        && request.resource.data.id == docId
+        && request.resource.data.source == docId.split('-')[0]
+        && request.resource.data.key is string
+        && request.resource.data.key.size() >= 32
+        && request.resource.data.key == syncKey()
+        && request.resource.data.items is list
+        && request.resource.data.items.size() <= 600;
     }
 
     // Everything else is closed. (The notification sender uses the Admin SDK,

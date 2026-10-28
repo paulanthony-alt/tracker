@@ -68,6 +68,18 @@ If a run fails with an error mentioning the Cloud Messaging API, enable **Fireba
 
 GitHub pauses scheduled jobs in public repositories after 60 days without any commits. If reminders stop arriving, open **Actions → Vyro reminders** and click **Enable workflow**.
 
+## Google Classroom & Google Calendar
+
+Vyro can bring in your Google Classroom classes and assignments and your Google Calendar events by itself (Firebase version, free). Set it up in **Settings → Google Classroom & Calendar**: click **Set up the connection** and follow the steps shown there. In short, you paste a small script into [script.google.com](https://script.google.com) while signed in to your Google account, add the *Google Classroom API* service, and run `setup` once.
+
+- **Why a script?** Schools usually block outside apps from reading student accounts. A script you create in your own account counts as yours, so it works with school accounts. It runs every 30 minutes as you, and needs no Google Cloud setup.
+- **What it can do:** only replace its own "inbox" document in your Firebase project, using a secret sync key (`firestore.rules` checks it). It can't read your Vyro data or change your records directly. Whichever device has Vyro open merges the inbox into normal classes, assignments and events (`shared/imports.ts`).
+- **What comes in:** active classes; assignments due from a month ago to six months ahead (turned-in work is checked off, returned grades fill in); calendar events from two weeks ago to four months ahead. Classroom's own class calendars are skipped, since those assignments already come in.
+- **Your edits stay:** imported items are normal records. Changes in Google update what Google owns (title, due date, points, times) and keep your notes, priority and tags. Anything you delete in Vyro isn't brought back.
+- **More accounts:** run the same script in another Google account (for example a personal Gmail calendar).
+- **If the script was shared by mistake:** use **Reset key**. Old copies stop working; paste the new script into each account.
+- **Grade portals** (PowerSchool, Infinite Campus, Skyward…) have no way for apps to connect. Enter those grades in School → Grades & GPA.
+
 ## Quick start
 
 Requirements: **Node.js 22.5 or newer** (recommended, for the built-in SQLite). Node 20 also works, but then data is stored in a JSON file instead of SQLite.
@@ -123,7 +135,8 @@ The server listens on `127.0.0.1` only, so other devices can't reach your data. 
 |---|---|---|
 | Prioritization, grade impact, alerts, daily briefing, auto day-planner, weekly review, search | Nothing | Built in |
 | **AI assistant chat** | An Anthropic API key and the local server | `cp .env.example .env`, set `ANTHROPIC_API_KEY=…`, restart. Defaults to `claude-opus-5-5`; override with `ANTHROPIC_MODEL`. Not available in the free Firebase setup (it would need paid Cloud Functions). |
-| Google Calendar or school-portal sync | OAuth credentials and a hosted callback | Not included. Add events and grades directly, or import a backup. |
+| **Google Classroom & Google Calendar** | The Firebase version | Settings → Google Classroom & Calendar (see [above](#google-classroom--google-calendar)). |
+| School grade portal sync | Not possible | Portals don't offer a way for apps to connect. Enter grades in School → Grades & GPA. |
 
 The API key is read only by the server and is **never sent to the browser**. When you send a chat message, a plain-text snapshot of your tasks, events, habits, grades, projects and goals goes to Anthropic's API to generate the answer. The Assistant page has a *“Show exactly what is sent”* toggle so you can inspect it.
 
@@ -159,6 +172,8 @@ firebase.json           Firebase Hosting + emulator config
 scripts/deploy.mjs      `npm run deploy`: build + publish to Firebase
 scripts/reminders/      push sender run by .github/workflows/reminders.yml
 shared/notifications.ts what's due when (used by the app and the push sender)
+shared/imports.ts       merges Google Classroom / Calendar into your records
+src/lib/syncScript.ts   the Google Apps Script shown in Settings
 public/sw.js            service worker: shows push notifications
 src/lib/                store, persistence, grades, priority, habits, recurrence, insights, quick-add parser
 src/components/         UI primitives, editors, task rows, charts, command palette, quick add
