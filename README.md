@@ -1,6 +1,46 @@
 # Life OS
 
-A personal dashboard for school, side businesses, habits, goals, tasks and notes. It runs on your own computer, saves to a local SQLite database, and has a dark interface by default.
+A personal dashboard for school, side businesses, habits, goals, tasks and notes, with a dark interface by default.
+
+It runs two ways:
+
+- **On all your devices (Firebase, free):** one password unlocks the same data on your laptop, phone and tablet, with live sync and offline support. See [Use it on all your devices](#use-it-on-all-your-devices-firebase-free).
+- **On one computer:** a local server with a SQLite database. See [Quick start](#quick-start).
+
+## Use it on all your devices (Firebase, free)
+
+This uses Firebase's free **Spark** plan, which needs no credit card. Your data lives in your own Firebase project. You sign in with a **password only**; the app uses one fixed account email behind the scenes, so you never type an email.
+
+**One-time setup (about 10 minutes)**
+
+1. Go to [console.firebase.google.com](https://console.firebase.google.com), click **Create a project**, and give it a name (e.g. `life-os`). You can turn Google Analytics off. New projects start on the free Spark plan.
+2. **Build → Authentication → Get started → Sign-in method → Email/Password → Enable → Save.** Turn on only the first switch, not "Email link".
+3. **Build → Firestore Database → Create database.** Pick a location near you and start in **production mode**. The app's own security rules replace the defaults when you deploy.
+4. **Project settings** (gear icon) **→ General → Your apps → Web (`</>`)**. Register an app called "Life OS", then copy `apiKey`, `authDomain`, `projectId` and `appId` from the config it shows.
+5. On your computer, in this folder:
+   ```bash
+   cp .env.example .env      # paste the four values into the VITE_FIREBASE_* lines
+   npm install
+   npx firebase login        # opens a browser to sign in to your Google account
+   npm run deploy            # builds the app and publishes it with the security rules
+   ```
+6. Open **`https://<your-project-id>.web.app`**, choose **"First time here? Set your password"**, and set a password of at least 8 characters. **Do this right after deploying.** Once a password is set, nobody can set another.
+
+**On every other device**, open the same address and type your password. On a phone, use your browser's *Add to Home Screen* to get an app icon.
+
+**Good to know**
+
+- **Live sync:** a change on one device appears on the others within a second or two, no refresh needed.
+- **Offline:** each device keeps a copy, so the app opens and saves without internet and syncs when you're back online. The sidebar shows *Offline — saved on device*.
+- **Settings → Account** lets you change your password or sign out. Signing out removes the offline copy from that device, which is useful on a shared computer.
+- **Forgot your password?** In the Firebase console go to **Authentication → Users**, delete the user (`lifeos-owner@example.com`), then open the app and set a new password. Your data is stored separately from the account, so nothing is lost.
+- **Security:** `firestore.rules` lets only that one account read or write, and only inside the app's own data. Firebase also slows down repeated wrong-password attempts. The `VITE_FIREBASE_*` values aren't secrets; they only say which project to talk to.
+- **Free limits:** the Spark plan's daily database and hosting allowances are far above what one person's dashboard uses.
+- **AI chat isn't available on the free plan.** Keeping an API key secret needs server code (Cloud Functions), which requires the paid Blaze plan. Everything else works, including the rule-based daily briefing, auto day-planner and weekly review. Run the local server version if you want the chat.
+- **Moving existing data:** in the old version go to **Settings → Export backup**, then in the Firebase version go to **Settings → Import backup**.
+- **Updating later:** after pulling new code, run `npm run deploy` again.
+
+**Try it without a Firebase project:** `npm run dev:emulator` runs the whole Firebase setup locally using Google's emulators (requires Java), at http://localhost:5173.
 
 ## Quick start
 
@@ -19,7 +59,7 @@ For development with hot reload:
 npm run dev          # web app at http://localhost:5173, API on :3001
 ```
 
-Other scripts: `npm test` (unit tests), `npm run typecheck`, `npm run build`.
+Other scripts: `npm test` (unit tests), `npm run test:rules` (Firebase security-rules tests, needs Java), `npm run typecheck`, `npm run build`, `npm run deploy` (Firebase).
 
 ## What's inside
 
@@ -42,7 +82,9 @@ An assignment is a task with a class, and a business task is a task with a proje
 
 ## How your data is saved
 
-- **Normal mode (`npm start` / `npm run dev`):** data lives in `data/life-os.db`, a SQLite database on your computer. Each change is checked and saved within about half a second. If the server goes away mid-edit, unsent changes are kept in the browser and sent automatically when it comes back.
+- **Firebase mode** (when `VITE_FIREBASE_*` is set in `.env`): data lives in Cloud Firestore at `lifeos/owner/…` in your project, with an offline copy on each signed-in device. Back up whenever you like with *Export backup*.
+
+- **Local server mode (`npm start` / `npm run dev`):** data lives in `data/life-os.db`, a SQLite database on your computer. Each change is checked and saved within about half a second. If the server goes away mid-edit, unsent changes are kept in the browser and sent automatically when it comes back.
 - **Automatic backups:** each day the server starts, a JSON snapshot is written to `data/backups/` (the last 14 are kept). A safety snapshot is also taken before any import or full erase.
 - **Manual backups:** Settings → *Export backup (JSON)* / *Import backup*.
 - **Fallback mode:** if you open the built app without its server (for example `dist/` on a static host), it saves to that browser's `localStorage`. The sidebar shows **“Saved in this browser”** when this happens. Limitations: that data stays in that one browser on that one device, clearing site data erases it, and browsers cap storage at roughly 5 MB. Export backups regularly in this mode. If you later run the server against an empty database, browser-only data is moved into it automatically.
@@ -54,7 +96,7 @@ The server listens on `127.0.0.1` only, so other devices can't reach your data. 
 | Feature | Needs | Setup |
 |---|---|---|
 | Prioritization, grade impact, alerts, daily briefing, auto day-planner, weekly review, search | Nothing | Built in |
-| **AI assistant chat** | An Anthropic API key | `cp .env.example .env`, set `ANTHROPIC_API_KEY=…`, restart. Defaults to `claude-opus-5-5`; override with `ANTHROPIC_MODEL`. |
+| **AI assistant chat** | An Anthropic API key and the local server | `cp .env.example .env`, set `ANTHROPIC_API_KEY=…`, restart. Defaults to `claude-opus-5-5`; override with `ANTHROPIC_MODEL`. Not available in the free Firebase setup (it would need paid Cloud Functions). |
 | Google Calendar or school-portal sync | OAuth credentials and a hosted callback | Not included. Add events and grades directly, or import a backup. |
 
 The API key is read only by the server and is **never sent to the browser**. When you send a chat message, a plain-text snapshot of your tasks, events, habits, grades, projects and goals goes to Anthropic's API to generate the answer. The Assistant page has a *“Show exactly what is sent”* toggle so you can inspect it.
@@ -62,7 +104,11 @@ The API key is read only by the server and is **never sent to the browser**. Whe
 ## Configuration (`.env`)
 
 ```ini
-ANTHROPIC_API_KEY=        # optional, enables the AI assistant
+VITE_FIREBASE_API_KEY=    # Firebase mode: the four values from your web app config
+VITE_FIREBASE_AUTH_DOMAIN=
+VITE_FIREBASE_PROJECT_ID=
+VITE_FIREBASE_APP_ID=
+ANTHROPIC_API_KEY=        # local server only: enables the AI assistant
 ANTHROPIC_MODEL=claude-opus-5-5
 PORT=3000                 # production server port
 API_PORT=3001             # dev API port
@@ -73,18 +119,21 @@ DATA_DIR=data             # where the database and backups live
 ## Architecture
 
 - **Frontend:** React 19, TypeScript, Vite, Tailwind CSS and Zustand. Hash routing, so it also works as static files.
-- **Backend:** Express 5 on Node, with SQLite through the built-in `node:sqlite` (JSON-file fallback on older Node versions).
+- **Backend:** either Firebase (Auth + Cloud Firestore + Hosting, free plan), or Express 5 on Node with SQLite through the built-in `node:sqlite` (JSON-file fallback on older Node versions). Firebase is loaded only in Firebase builds.
 - **One data model** in `shared/schema.ts` (Zod). The browser checks every record before saving, and the server checks it again before writing to the database. Invalid data is rejected with a clear error.
 - **Sync:** an optimistic UI with a queued, batched sync. Repeated edits to the same record are combined into one write, failed sends are retried with backoff, and a beacon flushes pending changes when the tab closes.
 
 ```
 shared/schema.ts        data model + validation (used by client and server)
-server/                 Express API, SQLite storage, AI proxy
+server/                 Express API, SQLite storage, AI proxy (local server mode)
+firestore.rules         Firebase security rules (owner-only access)
+firebase.json           Firebase Hosting + emulator config
+scripts/deploy.mjs      `npm run deploy`: build + publish to Firebase
 src/lib/                store, persistence, grades, priority, habits, recurrence, insights, quick-add parser
 src/components/         UI primitives, editors, task rows, charts, command palette, quick add
 src/widgets/            dashboard widgets
 src/pages/              Dashboard, Tasks, Calendar, School, Business, Habits, Notes, Assistant, Settings
-tests/                  unit tests for the calculation logic
+tests/                  unit tests for the calculation logic; tests/firebase/ for security rules
 ```
 
 ### How things are calculated

@@ -10,6 +10,8 @@ import { QuickAdd } from '@/components/QuickAdd';
 import { TaskEditor } from '@/components/editors/TaskEditor';
 import { ClassEditor, EventEditor, GoalEditor, HabitEditor, ProjectEditor } from '@/components/editors/Editors';
 import { Onboarding } from '@/components/Onboarding';
+import { FirebaseGate } from '@/components/Login';
+import { firebaseEnabled } from '@/lib/firebaseConfig';
 import { Button } from '@/components/ui/primitives';
 import { Dashboard } from '@/pages/Dashboard';
 import { TasksPage } from '@/pages/Tasks';
@@ -137,9 +139,19 @@ function Page() {
 }
 
 export function App() {
+  useTheme();
+  return firebaseEnabled ? (
+    <FirebaseGate>
+      <Main />
+    </FirebaseGate>
+  ) : (
+    <Main />
+  );
+}
+
+function Main() {
   const ready = useStore((s) => s.ready);
   const loadError = useStore((s) => s.loadError);
-  useTheme();
   useShortcuts();
   useEffect(() => {
     void useStore.getState().init();
@@ -158,7 +170,7 @@ export function App() {
           <AlertTriangle className="mx-auto text-bad" />
           <p className="mt-3 font-medium">Couldn’t load your data</p>
           <p className="mt-1 text-[13px] text-muted">{loadError}</p>
-          <p className="mt-3 text-xs text-faint">Your data is safe in the database. Check that the server is running, then reload.</p>
+          <p className="mt-3 text-xs text-faint">{firebaseEnabled ? 'Your data is safe in Firebase. Check your connection, then reload.' : 'Your data is safe in the database. Check that the server is running, then reload.'}</p>
           <Button className="mt-4" onClick={() => location.reload()}>
             Reload
           </Button>

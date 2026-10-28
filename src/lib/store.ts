@@ -122,6 +122,26 @@ export const useStore = create<AppState>()((set, get) => {
       persistence.setListeners(
         (status, detail) => set({ syncStatus: status, syncDetail: detail }),
         (errors) => toast.error(`${errors.length} change(s) were rejected by the server: ${errors[0].message}`),
+        // Changes made on another device (Firebase mode): merge them in without re-saving.
+        ({ collection, upserts, deletes }) => {
+          const schema = collectionSchemas[collection];
+          const valid = upserts.filter((r) => schema.safeParse(r).success);
+          if (collection === 'settings') {
+            const next = valid.find((r) => r.id === 'settings') as Settings | undefined;
+            if (next) set({ settings: withDefaults(next) });
+            return;
+          }
+          set((s) => {
+            const incoming = new Map(valid.map((r) => [r.id, r]));
+            const gone = new Set(deletes);
+            const current = s[collection] as { id: string }[];
+            // Replace in place so list order stays stable; append records that are new here.
+            const next = current.filter((r) => !gone.has(r.id)).map((r) => incoming.get(r.id) ?? r);
+            const known = new Set(current.map((r) => r.id));
+            for (const r of valid) if (!known.has(r.id)) next.push(r);
+            return { [collection]: next } as unknown as Partial<AppState>;
+          });
+        },
       );
       persistence.bindSnapshot(() => get().snapshot());
       try {

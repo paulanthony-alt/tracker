@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Database, Download, FlaskConical, HardDrive, Keyboard, Plug, Trash2, Upload, X } from 'lucide-react';
+import { Database, Download, FlaskConical, HardDrive, KeyRound, Keyboard, LogOut, Plug, Trash2, Upload, X } from 'lucide-react';
 import { BACKUP_FORMAT, BACKUP_VERSION, COLLECTIONS, emptySnapshot, validateBackup, type Backup } from '@shared/schema';
 import { hasSampleData, useStore } from '@/lib/store';
 import { defaultSettings } from '@/lib/defaults';
@@ -7,6 +7,7 @@ import { todayISO } from '@/lib/dates';
 import { cn, downloadFile, plural } from '@/lib/util';
 import { toast } from '@/lib/toast';
 import { persistence } from '@/lib/persistence';
+import { MIN_PASSWORD_LENGTH, OWNER_EMAIL } from '@/lib/firebaseConfig';
 import { Badge, Button, Card, PageHeader } from '@/components/ui/primitives';
 import { Modal, confirmAction } from '@/components/ui/Modal';
 import { Field, Segmented } from '@/components/ui/Field';
@@ -77,6 +78,7 @@ export function SettingsPage() {
           The backup contains {plural(count, 'record')}
           {result.skipped ? ` (${plural(result.skipped, 'invalid record')} will be skipped)` : ''}. Your current {plural(total, 'record')} will be replaced.
           {s.storageMode === 'server' ? ' A safety copy of the current database is saved to data/backups first.' : ' Export a backup first if you might want your current data back.'}
+          {s.storageMode === 'firebase' && ' The change syncs to all your devices.'}
         </>
       ),
       confirmLabel: 'Replace data',
@@ -163,9 +165,18 @@ export function SettingsPage() {
           </div>
         </Card>
 
-        <Card title="Your data" icon={s.storageMode === 'server' ? <Database size={15} /> : <HardDrive size={15} />}>
-          <div className={cn('rounded-xl border p-3 text-[13px] leading-relaxed', s.storageMode === 'server' ? 'border-good/25 bg-good/[0.06]' : 'border-warn/30 bg-warn/[0.08]')}>
-            {s.storageMode === 'server' ? (
+        {s.storageMode === 'firebase' && <AccountCard />}
+
+        <Card title="Your data" icon={s.storageMode !== 'local' ? <Database size={15} /> : <HardDrive size={15} />}>
+          <div className={cn('rounded-xl border p-3 text-[13px] leading-relaxed', s.storageMode !== 'local' ? 'border-good/25 bg-good/[0.06]' : 'border-warn/30 bg-warn/[0.08]')}>
+            {s.storageMode === 'firebase' ? (
+              <>
+                <p className="font-medium text-fg">Saved to your Firebase account</p>
+                <p className="mt-1 text-muted">
+                  Stored in Cloud Firestore in your own Firebase project and synced live to every device where you unlock Life OS. Each device also keeps an offline copy, so the app opens and saves without internet and catches up when you reconnect. Signing out removes that copy from the device.
+                </p>
+              </>
+            ) : s.storageMode === 'server' ? (
               <>
                 <p className="font-medium text-fg">Saved to a local database</p>
                 <p className="mt-1 text-muted">
@@ -240,10 +251,14 @@ export function SettingsPage() {
         <Card title="Integrations" icon={<Plug size={15} />}>
           <ul className="space-y-3 text-[13px]">
             <li className="flex items-start gap-3">
-              <Badge tone={s.aiAvailable ? 'good' : 'neutral'}>{s.aiAvailable ? 'Connected' : 'Needs API key'}</Badge>
+              <Badge tone={s.aiAvailable ? 'good' : 'neutral'}>{s.aiAvailable ? 'Connected' : s.storageMode === 'firebase' ? 'Needs paid plan' : 'Needs API key'}</Badge>
               <div>
                 <p className="font-medium">AI assistant (Anthropic Claude)</p>
-                <p className="text-xs text-faint">Chat that summarizes tasks, plans your day and suggests priorities. Set ANTHROPIC_API_KEY in .env on the server. The key is never exposed to the browser.</p>
+                <p className="text-xs text-faint">
+                  {s.storageMode === 'firebase'
+                    ? 'Chat that summarizes tasks, plans your day and suggests priorities. Keeping an API key secret needs a server; on Firebase that means Cloud Functions, which require the paid Blaze plan. Running Life OS locally with npm start also enables it.'
+                    : 'Chat that summarizes tasks, plans your day and suggests priorities. Set ANTHROPIC_API_KEY in .env on the server. The key is never exposed to the browser.'}
+                </p>
               </div>
             </li>
             <li className="flex items-start gap-3">
@@ -306,5 +321,72 @@ export function SettingsPage() {
         </Field>
       </Modal>
     </div>
+  );
+}
+
+function AccountCard() {
+  const [form, setForm] = useState({ current: '', next: '', confirm: '' });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const change = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (!form.current) return setError('Enter your current password.');
+    if (form.next.length < MIN_PASSWORD_LENGTH) return setError(`Use at least ${MIN_PASSWORD_LENGTH} characters for the new password.`);
+    if (form.next !== form.confirm) return setError('The new passwords don’t match.');
+    setBusy(true);
+    const fb = await import('@/lib/firebase');
+    try {
+      await fb.changePassword(form.current, form.next);
+      setForm({ current: '', next: '', confirm: '' });
+      toast.success('Password changed. Use the new one on your other devices next time they ask.');
+    } catch (err) {
+      setError(fb.authErrorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const [signingOut, setSigningOut] = useState(false);
+  const signOutHere = async () => {
+    setSigningOut(true);
+    const synced = await persistence.waitForSync(5000);
+    setSigningOut(false);
+    if (!synced) {
+      const ok = await confirmAction({
+        title: 'Some changes haven’t synced yet',
+        message: 'This device is offline or still uploading. Signing out now removes the offline copy, so those changes would be lost. Reconnect and wait for “Synced” in the sidebar to be safe.',
+        confirmLabel: 'Sign out anyway',
+      });
+      if (!ok) return;
+    }
+    const fb = await import('@/lib/firebase');
+    persistence.stop();
+    await fb.signOutUser();
+    location.reload();
+  };
+
+  return (
+    <Card title="Account" icon={<KeyRound size={15} />}>
+      <p className="text-[13px] text-muted">Your password unlocks Life OS on every device. There’s no email to remember; the app uses a fixed account behind the scenes.</p>
+      <form className="mt-4 space-y-2" onSubmit={change} noValidate>
+        <input type="email" name="username" autoComplete="username" value={OWNER_EMAIL} readOnly hidden />
+        <input id="pw-current" type="password" className="input" placeholder="Current password" autoComplete="current-password" aria-label="Current password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} />
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <input id="pw-new" type="password" className="input" placeholder="New password" autoComplete="new-password" aria-label="New password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} />
+          <input id="pw-confirm" type="password" className="input" placeholder="Confirm new password" autoComplete="new-password" aria-label="Confirm new password" value={form.confirm} onChange={(e) => setForm({ ...form, confirm: e.target.value })} />
+        </div>
+        {error && <p role="alert" className="text-xs text-bad">{error}</p>}
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Button type="submit" disabled={busy}>
+            Change password
+          </Button>
+          <Button variant="ghost" icon={<LogOut size={14} />} onClick={() => void signOutHere()} disabled={signingOut}>
+            {signingOut ? 'Finishing sync…' : 'Sign out on this device'}
+          </Button>
+        </div>
+      </form>
+    </Card>
   );
 }

@@ -86,8 +86,10 @@ export function Onboarding() {
           />
         </Field>
         <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-line bg-surface-2 p-3 text-xs leading-relaxed text-muted">
-          {mode === 'server' ? <Database size={15} className="mt-0.5 shrink-0 text-good" /> : <HardDrive size={15} className="mt-0.5 shrink-0 text-warn" />}
-          {mode === 'server' ? (
+          {mode !== 'local' ? <Database size={15} className="mt-0.5 shrink-0 text-good" /> : <HardDrive size={15} className="mt-0.5 shrink-0 text-warn" />}
+          {mode === 'firebase' ? (
+            <span>Your data is saved to your own Firebase project and syncs to every device where you unlock Life OS with your password.</span>
+          ) : mode === 'server' ? (
             <span>Your data is saved to a private SQLite database on this computer (the <code>data/</code> folder). Nothing is sent anywhere else.</span>
           ) : (
             <span>No server is running, so data is saved in this browser only. Run the app with <code>npm start</code> for database storage, and export backups from Settings.</span>

@@ -74,10 +74,10 @@ function SyncIndicator({ collapsed }: { collapsed: boolean }) {
       : status === 'saving'
         ? { icon: <Loader2 size={14} className="animate-spin" />, text: 'Saving…', tone: 'text-faint', title: 'Saving to the database' }
         : status === 'offline'
-          ? { icon: <CloudOff size={14} />, text: 'Offline — changes queued', tone: 'text-warn', title: `Can’t reach the server (${detail ?? 'network'}). Changes are kept and will sync automatically.` }
+          ? { icon: <CloudOff size={14} />, text: mode === 'firebase' ? 'Offline — saved on device' : 'Offline — changes queued', tone: 'text-warn', title: mode === 'firebase' ? 'You’re offline. Changes are saved on this device and sync when you reconnect.' : `Can’t reach the server (${detail ?? 'network'}). Changes are kept and will sync automatically.` }
           : status === 'error'
             ? { icon: <AlertTriangle size={14} />, text: 'Some changes rejected', tone: 'text-bad', title: detail ?? 'The server rejected a change' }
-            : { icon: <Cloud size={14} />, text: 'All changes saved', tone: 'text-faint', title: 'Saved to the local database' };
+            : { icon: <Cloud size={14} />, text: mode === 'firebase' ? 'Synced' : 'All changes saved', tone: 'text-faint', title: mode === 'firebase' ? 'Saved to your Firebase account and synced to your devices' : 'Saved to the local database' };
   return (
     <a href="#/settings" title={info.title} className={cn('flex h-8 items-center gap-2 rounded-lg px-2.5 text-xs hover:bg-surface-2', info.tone, collapsed && 'justify-center px-0')}>
       {info.icon}

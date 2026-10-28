@@ -6,14 +6,19 @@
  *    batches. Unsent changes are mirrored to localStorage, so closing the tab
  *    or losing the server mid-edit doesn't lose work — they're re-sent on the
  *    next load.
+ *  - "firebase" mode: when the app is built with Firebase settings, data lives
+ *    in Cloud Firestore under your account. Firestore keeps a copy on the
+ *    device (works offline) and streams changes made on your other devices.
  *  - "local" mode (fallback): when no server is reachable (e.g. the app was
  *    opened as static files), the whole dataset is kept in this browser's
  *    localStorage. It is per-browser and per-device, and clearing site data
  *    erases it — the UI says so and offers export.
  */
 import { COLLECTIONS, type CollectionName, type DataSnapshot, type SyncOp, emptySnapshot } from '@shared/schema';
+import { firebaseEnabled } from './firebaseConfig';
+import type { RemoteChange } from './firebase';
 
-export type StorageMode = 'server' | 'local';
+export type StorageMode = 'server' | 'local' | 'firebase';
 export type SyncStatus = 'saved' | 'saving' | 'offline' | 'error';
 
 const LOCAL_KEY = 'lifeos.data.v1';
@@ -72,6 +77,8 @@ export interface ServerHealth {
 
 type Listener = (status: SyncStatus, detail?: string) => void;
 type RejectListener = (errors: { collection: string; id: string; message: string }[]) => void;
+type RemoteListener = (change: RemoteChange) => void;
+type FirebaseModule = typeof import('./firebase');
 
 export class Persistence {
   mode: StorageMode = 'local';
@@ -83,6 +90,11 @@ export class Persistence {
   private localSnapshot: (() => DataSnapshot) | null = null;
   private onStatus: Listener = () => {};
   private onReject: RejectListener = () => {};
+  private onRemote: RemoteListener = () => {};
+  private fb: FirebaseModule | null = null;
+  private stopRemote: (() => void) | null = null;
+  /** Firebase writes handed to the SDK but not yet confirmed by the server. */
+  private unacked = 0;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -91,13 +103,38 @@ export class Persistence {
     }
   }
 
-  setListeners(onStatus: Listener, onReject: RejectListener) {
+  setListeners(onStatus: Listener, onReject: RejectListener, onRemote?: RemoteListener) {
     this.onStatus = onStatus;
     this.onReject = onReject;
+    if (onRemote) this.onRemote = onRemote;
+  }
+
+  /** Stop listening for remote changes (sign-out). */
+  stop() {
+    this.stopRemote?.();
+    this.stopRemote = null;
+  }
+
+  private handleRemote(change: RemoteChange) {
+    // A record we still have queued locally is newer than what arrived; keep ours.
+    const upserts = change.upserts.filter((r) => !this.pending.has(`${change.collection}:${r.id}`));
+    const deletes = change.deletes.filter((id) => !this.pending.has(`${change.collection}:${id}`));
+    if (upserts.length || deletes.length) this.onRemote({ collection: change.collection, upserts, deletes });
   }
 
   /** Decide the mode and load all data. */
   async boot(): Promise<DataSnapshot> {
+    if (firebaseEnabled) {
+      this.mode = 'firebase';
+      this.fb = await import('./firebase');
+      const { initial, stop } = this.fb.subscribeAll(
+        (c) => this.handleRemote(c),
+        (msg) => this.onStatus('error', msg),
+      );
+      this.stopRemote = stop;
+      const data = await initial;
+      return this.afterLoad(data, COLLECTIONS.every((c) => data[c].length === 0));
+    }
     try {
       const res = await fetchWithTimeout('api/health', {}, 2500);
       const health = (await res.json()) as ServerHealth;
@@ -119,8 +156,11 @@ export class Persistence {
 
     const res = await fetchWithTimeout('api/data', {}, 10000);
     if (!res.ok) throw new Error(`Could not load data (HTTP ${res.status})`);
-    const data = normaliseSnapshot(await res.json());
+    return this.afterLoad(normaliseSnapshot(await res.json()), this.health?.records === 0);
+  }
 
+  /** Shared by server and Firebase modes after the remote data has loaded. */
+  private afterLoad(data: DataSnapshot, remoteEmpty: boolean): DataSnapshot {
     // Re-apply changes that never reached the server last time.
     const unsent = this.readPending();
     if (unsent.length) {
@@ -131,9 +171,9 @@ export class Persistence {
       this.schedule(0);
     }
 
-    // First run against an empty server, but this browser has local-only data: move it over.
+    // First run against an empty database, but this browser has local-only data: move it over.
     const localRaw = safeGet(LOCAL_KEY);
-    if (this.health && this.health.records === 0 && localRaw && !unsent.length) {
+    if (remoteEmpty && localRaw && !unsent.length) {
       try {
         const local = normaliseSnapshot(JSON.parse(localRaw));
         for (const c of COLLECTIONS) {
@@ -174,6 +214,7 @@ export class Persistence {
       this.onStatus(ok ? 'saved' : 'error', ok ? undefined : 'Browser storage is full or blocked — export a backup.');
       return;
     }
+    if (this.mode === 'firebase') return this.flushFirebase();
     if (this.inFlight || this.pending.size === 0) return;
     this.inFlight = true;
     const batch = [...this.pending.values()].slice(0, 500);
@@ -203,7 +244,36 @@ export class Persistence {
     if (this.pending.size) this.schedule(50);
   }
 
+  /**
+   * Hand queued changes to Firestore. The SDK stores them on the device
+   * immediately and uploads them when online, so our queue can be cleared now.
+   */
+  private flushFirebase() {
+    if (!this.fb || this.pending.size === 0) return;
+    const ops = [...this.pending.values()];
+    this.pending.clear();
+    this.writePending();
+    this.unacked++;
+    this.onStatus(typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'saving', 'Offline — changes are saved on this device and will sync when you reconnect.');
+    this.fb
+      .writeOps(ops)
+      .then(() => {
+        this.unacked--;
+        if (this.unacked === 0 && this.pending.size === 0) this.onStatus('saved');
+      })
+      .catch((err: unknown) => {
+        this.unacked--;
+        const code = (err as { code?: string })?.code;
+        this.onStatus('error', code === 'permission-denied' ? 'Firebase rejected a change (permission denied). Sign out and back in.' : err instanceof Error ? err.message : 'Sync failed');
+      });
+  }
+
   private flushOnUnload() {
+    if (this.mode === 'firebase') {
+      this.writePending();
+      this.flushFirebase();
+      return;
+    }
     if (this.mode === 'local') {
       if (this.pending.size && this.localSnapshot) safeSet(LOCAL_KEY, JSON.stringify(this.localSnapshot()));
       return;
@@ -222,6 +292,19 @@ export class Persistence {
     return this.pending.size > 0;
   }
 
+  /** Changes not yet confirmed by the server (queued here or inside the Firebase SDK). */
+  get hasUnsynced() {
+    return this.pending.size > 0 || this.unacked > 0;
+  }
+
+  /** Send anything queued and wait (up to `ms`) for the server to confirm. Returns true when fully synced. */
+  async waitForSync(ms = 5000): Promise<boolean> {
+    await this.flush();
+    const until = Date.now() + ms;
+    while (this.hasUnsynced && Date.now() < until) await new Promise((r) => setTimeout(r, 100));
+    return !this.hasUnsynced;
+  }
+
   private readPending(): SyncOp[] {
     const raw = safeGet(PENDING_KEY);
     if (!raw) return [];
@@ -234,7 +317,7 @@ export class Persistence {
   }
 
   private writePending() {
-    if (this.mode !== 'server') return;
+    if (this.mode === 'local') return;
     if (this.pending.size) safeSet(PENDING_KEY, JSON.stringify([...this.pending.values()]));
     else safeRemove(PENDING_KEY);
   }
@@ -245,6 +328,11 @@ export class Persistence {
     safeRemove(PENDING_KEY);
     if (this.mode === 'local') {
       if (!safeSet(LOCAL_KEY, JSON.stringify(data))) throw new Error('Browser storage is full or blocked.');
+      return { skipped: 0 };
+    }
+    if (this.mode === 'firebase') {
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('You’re offline. Reconnect to replace your data.');
+      await this.fb!.replaceAllRemote(data);
       return { skipped: 0 };
     }
     const res = await fetchWithTimeout(

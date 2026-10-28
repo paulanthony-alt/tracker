@@ -16,6 +16,8 @@ export default defineConfig({
     },
   },
   build: {
+    // The Firebase SDK is its own chunk, loaded only in Firebase builds.
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
         manualChunks: { vendor: ['react', 'react-dom', 'react-dom/client', 'zustand', 'zod', 'date-fns'] },
@@ -27,6 +29,7 @@ export default defineConfig({
     proxy: { '/api': `http://localhost:${apiPort}` },
   },
   test: {
-    include: ['tests/**/*.test.ts'],
+    // Firebase rules tests need the emulator: run them with `npm run test:rules`.
+    include: process.env.FIREBASE_TESTS ? ['tests/firebase/**/*.spec.ts'] : ['tests/**/*.test.ts'],
   },
 });

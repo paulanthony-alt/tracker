@@ -285,7 +285,11 @@ export function AssistantPage() {
               <p className="text-[13.5px] leading-relaxed text-muted">
                 The conversational assistant needs an <span className="font-medium text-fg">Anthropic API key</span>. The key stays on the server — it’s never sent to the browser.
               </p>
-              {mode === 'local' ? (
+              {mode === 'firebase' ? (
+                <p className="mt-3 rounded-xl border border-line bg-surface-2 p-3 text-xs leading-relaxed text-muted">
+                  On Firebase, keeping the key secret requires Cloud Functions, which only run on the paid Blaze plan. To use the chat for free, run Life OS on your computer with <code className="rounded bg-surface-3 px-1">npm start</code> and an API key in <code className="rounded bg-surface-3 px-1">.env</code>.
+                </p>
+              ) : mode === 'local' ? (
                 <p className="mt-3 rounded-xl border border-warn/30 bg-warn/10 p-3 text-xs leading-relaxed text-warn">
                   You’re running Life OS without its server, so AI isn’t available. Start it with <code className="rounded bg-surface-3 px-1">npm start</code> to enable the database and the assistant.
                 </p>
