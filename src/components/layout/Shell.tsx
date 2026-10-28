@@ -33,7 +33,7 @@ import { buildAlerts } from '@/lib/insights';
 import { isOverdue } from '@/lib/priority';
 import { cn } from '@/lib/util';
 import { useToasts } from '@/lib/toast';
-import { BrandMark } from '../BrandMark';
+import { BrandLockup, BrandMark, Wordmark } from '../BrandMark';
 import { Button, IconButton } from '../ui/primitives';
 import { Popover } from '../ui/Field';
 
@@ -100,7 +100,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
         <BrandMark className="h-8 w-8 rounded-lg" />
         {!collapsed && (
           <div className="min-w-0">
-            <p className="text-[13px] font-semibold leading-4 tracking-tight">Vyro</p>
+            <Wordmark className="mb-1 block h-2.5 text-fg" />
             <p className="truncate text-[11px] text-faint">{name ? `${name}’s workspace` : 'Personal workspace'}</p>
           </div>
         )}
@@ -254,18 +254,21 @@ export function Shell({ children }: { children: ReactNode }) {
             <Menu size={18} />
           </IconButton>
           <a href="#/" aria-label="Vyro home" className="shrink-0 lg:hidden">
-            <BrandMark className="h-8 w-8 rounded-lg" />
+            <BrandLockup />
           </a>
           <button
             type="button"
             onClick={() => setPalette(true)}
-            className="flex h-9 min-w-0 max-w-md flex-1 items-center gap-2.5 rounded-lg border border-line bg-surface px-3 text-left text-[13px] text-faint transition-colors hover:border-line-strong hover:text-muted"
+            className="hidden h-9 min-w-0 max-w-md flex-1 items-center sm:flex gap-2.5 rounded-lg border border-line bg-surface px-3 text-left text-[13px] text-faint transition-colors hover:border-line-strong hover:text-muted"
           >
             <Search size={15} className="shrink-0" />
             <span className="flex-1 truncate">Search everything…</span>
             <span className="kbd hidden sm:inline-flex">{isMac ? '⌘' : 'Ctrl'} K</span>
           </button>
           <div className="ml-auto flex items-center gap-1">
+            <IconButton label="Search" className="sm:hidden" onClick={() => setPalette(true)}>
+              <Search size={17} />
+            </IconButton>
             <AlertsButton />
             <Button variant="primary" size="sm" icon={<Plus size={15} />} onClick={() => open({ kind: 'quickadd' })} className="ml-1" title="Quick add (N)">
               <span className="hidden sm:inline">New</span>
