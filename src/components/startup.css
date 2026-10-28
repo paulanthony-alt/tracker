@@ -1,0 +1,210 @@
+/* Startup sequence (src/components/StartupSequence.tsx): one centered arc-reactor
+   ring, the wordmark and a status line beneath it, quiet corner readouts. */
+.vyro-boot {
+  --bg: #02050a;
+  --bg-glow: #07222f;
+  --ink: #e3f7ff;
+  --ink-dim: #7fa6b6;
+  --cyan: #42e2ff;
+  --display: 'Michroma', 'Eurostile', 'Arial', sans-serif;
+  --ui: 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  color-scheme: dark;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--ui);
+  overflow: hidden;
+  padding: env(safe-area-inset-top, 0px) max(16px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(16px, env(safe-area-inset-left, 0px));
+  transition: opacity 1s ease;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.vyro-boot.gone {
+  opacity: 0;
+  pointer-events: none;
+}
+.vyro-boot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(60% 55% at 50% 44%, var(--bg-glow) 0%, transparent 70%);
+}
+.vyro-boot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(0, 0, 0, 0.6) 100%);
+}
+.vyro-boot canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+.vyro-boot .stage {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.vyro-boot .core {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(18px, 3.2vmin, 30px);
+}
+.vyro-boot .reactor {
+  --size: clamp(220px, 48vmin, 440px);
+  width: var(--size);
+  height: var(--size);
+  display: grid;
+  place-items: center;
+}
+.vyro-boot .pct {
+  display: flex;
+  align-items: baseline;
+  gap: 0.15em;
+  font-size: calc(var(--size) * 0.17);
+  font-weight: 300;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 18px rgba(66, 226, 255, 0.55);
+}
+.vyro-boot .pct small {
+  font-size: 0.38em;
+  color: var(--cyan);
+  opacity: 0.85;
+}
+.vyro-boot .word {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(26px, 5.2vmin, 44px);
+  letter-spacing: 0.55em;
+  padding-left: 0.55em;
+  color: var(--ink);
+  text-shadow: 0 0 24px rgba(66, 226, 255, 0.35);
+  animation: vyro-boot-word 1.8s cubic-bezier(0.2, 0.7, 0.2, 1) 0.3s both;
+  transition:
+    text-shadow 0.9s ease,
+    color 0.9s ease;
+}
+.vyro-boot .word.lit {
+  color: #fff;
+  text-shadow:
+    0 0 14px rgba(66, 226, 255, 0.9),
+    0 0 46px rgba(66, 226, 255, 0.55);
+}
+@keyframes vyro-boot-word {
+  from {
+    opacity: 0;
+    letter-spacing: 1em;
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    letter-spacing: 0.55em;
+    filter: blur(0);
+  }
+}
+.vyro-boot .status {
+  margin: 0;
+  min-height: 1.4em;
+  text-align: center;
+  font-size: clamp(14px, 2.2vmin, 17px);
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  padding-left: 0.28em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+.vyro-boot .status.out {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.vyro-boot .corner {
+  position: absolute;
+  z-index: 2;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
+}
+.vyro-boot .tl {
+  top: clamp(16px, 3vh, 28px);
+  left: 0;
+}
+.vyro-boot .tr {
+  top: clamp(16px, 3vh, 28px);
+  right: 0;
+}
+.vyro-boot .corner i {
+  font-style: normal;
+  opacity: 0.5;
+  margin: 0 0.5em;
+}
+.vyro-boot .dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
+  margin-right: 10px;
+  vertical-align: middle;
+  animation: vyro-boot-blink 2.2s ease-in-out infinite;
+}
+@keyframes vyro-boot-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+.vyro-boot .hint {
+  position: absolute;
+  z-index: 2;
+  left: 0;
+  right: 0;
+  bottom: clamp(16px, 3.5vh, 32px);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  opacity: 0;
+  transition: opacity 1s ease;
+}
+.vyro-boot .hint.show {
+  opacity: 0.6;
+}
+@media (max-width: 420px) {
+  .vyro-boot .tl {
+    letter-spacing: 0.16em;
+  }
+  .vyro-boot .tr {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vyro-boot .word,
+  .vyro-boot .dot {
+    animation: none;
+  }
+}

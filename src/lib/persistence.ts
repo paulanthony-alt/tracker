@@ -99,6 +99,11 @@ export class Persistence {
   constructor() {
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', () => this.flushOnUnload());
+      // Phones often close a backgrounded app without any unload event, so save when hidden too.
+      window.addEventListener('pagehide', () => this.flushOnUnload());
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') this.flushOnUnload();
+      });
       window.addEventListener('online', () => this.schedule(0));
     }
   }
@@ -162,12 +167,15 @@ export class Persistence {
   /** Shared by server and Firebase modes after the remote data has loaded. */
   private afterLoad(data: DataSnapshot, remoteEmpty: boolean): DataSnapshot {
     // Re-apply changes that never reached the server last time.
-    const unsent = this.readPending();
+    // Skip any that the database already has (or that were changed since, e.g. on another device).
+    const unsent = this.readPending().filter((op) => !isSuperseded(data, op));
+    safeRemove(PENDING_KEY);
     if (unsent.length) {
       for (const op of unsent) {
         applyOp(data, op);
         this.pending.set(keyOf(op), op);
       }
+      this.writePending();
       this.schedule(0);
     }
 
@@ -270,8 +278,11 @@ export class Persistence {
 
   private flushOnUnload() {
     if (this.mode === 'firebase') {
-      this.writePending();
+      // Hand the queue to Firestore, but keep the on-device copy: the page may close before
+      // Firestore has stored it. The next start re-applies whatever the database doesn't have.
+      const ops = [...this.pending.values()];
       this.flushFirebase();
+      if (ops.length) safeSet(PENDING_KEY, JSON.stringify(ops));
       return;
     }
     if (this.mode === 'local') {
@@ -351,6 +362,15 @@ export class Persistence {
 }
 
 const keyOf = (op: SyncOp) => `${op.collection}:${op.id}`;
+
+/** True if the loaded data already has this saved change, or a newer version of the record. */
+function isSuperseded(data: DataSnapshot, op: SyncOp): boolean {
+  if (op.op !== 'put') return false;
+  const list = (data as Record<string, { id: string; updatedAt?: number }[]>)[op.collection as CollectionName];
+  const current = list?.find((r) => r.id === op.id);
+  const incoming = (op.data as { updatedAt?: number } | null)?.updatedAt;
+  return typeof current?.updatedAt === 'number' && typeof incoming === 'number' && current.updatedAt >= incoming;
+}
 
 function applyOp(data: DataSnapshot, op: SyncOp) {
   const list = (data as Record<string, { id: string }[]>)[op.collection as CollectionName];

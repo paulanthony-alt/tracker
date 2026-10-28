@@ -14,6 +14,7 @@ import { Field, Segmented } from '@/components/ui/Field';
 import { loadSampleData, removeSampleDataWithConfirm } from '@/components/Onboarding';
 import { NotificationSettings } from '@/components/NotificationSettings';
 import { ConnectionsSettings } from '@/components/ConnectionsSettings';
+import { setStartupAnimationEnabled, startupAnimationEnabled } from '@/components/StartupSequence';
 
 export async function exportBackup() {
   const data = useStore.getState().snapshot();
@@ -58,6 +59,7 @@ export function SettingsPage() {
   const update = s.updateSettings;
   const fileRef = useRef<HTMLInputElement>(null);
   const [resetOpen, setResetOpen] = useState(false);
+  const [startup, setStartup] = useState(startupAnimationEnabled);
   const [resetText, setResetText] = useState('');
   const sample = hasSampleData(s);
   const total = COLLECTIONS.filter((c) => c !== 'settings').reduce((n, c) => n + (s[c as Exclude<typeof c, 'settings'>] as unknown[]).length, 0);
@@ -113,6 +115,9 @@ export function SettingsPage() {
           <div className="space-y-4">
             <Field label="Your name" hint="Used in your greeting">
               <input className="input" value={settings.name} maxLength={60} onChange={(e) => update({ name: e.target.value })} />
+            </Field>
+            <Field label="Startup animation" hint="Plays each time you open Vyro on this device. Tap it to skip.">
+              <Segmented value={startup ? 'on' : 'off'} onChange={(v) => (setStartupAnimationEnabled(v === 'on'), setStartup(v === 'on'))} options={[{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]} />
             </Field>
             <Field label="Theme">
               <Segmented value={settings.theme} onChange={(v) => update({ theme: v })} options={[{ value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }, { value: 'system', label: 'System' }]} />

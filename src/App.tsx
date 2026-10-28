@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useStore } from '@/lib/store';
 import { useUI } from '@/lib/ui';
@@ -14,6 +14,7 @@ import { AlertStack } from '@/components/AlertStack';
 import { browserTimeZone, startNotifier } from '@/lib/notifier';
 import { startImports } from '@/lib/imports';
 import { BootScreen } from '@/components/BrandMark';
+import { StartupSequence, startupAnimationEnabled } from '@/components/StartupSequence';
 import { FirebaseGate } from '@/components/Login';
 import { firebaseEnabled } from '@/lib/firebaseConfig';
 import { Button } from '@/components/ui/primitives';
@@ -156,8 +157,20 @@ export function App() {
 }
 
 function Main() {
+  // Play the startup sequence once each time the app opens (after sign-in in the Firebase version).
+  const [intro, setIntro] = useState(startupAnimationEnabled);
+  const name = useStore((s) => s.settings.name);
   const ready = useStore((s) => s.ready);
   const loadError = useStore((s) => s.loadError);
+  return (
+    <>
+      <MainContent ready={ready} loadError={loadError} />
+      {intro && <StartupSequence ready={ready} name={name || undefined} onDone={() => setIntro(false)} />}
+    </>
+  );
+}
+
+function MainContent({ ready, loadError }: { ready: boolean; loadError: string | null }) {
   useShortcuts();
   useEffect(() => {
     void useStore.getState().init();
