@@ -4,12 +4,12 @@ A personal dashboard for school, side businesses, habits, goals, tasks and notes
 
 It runs two ways:
 
-- **On all your devices (Firebase, free):** one password unlocks the same data on your laptop, phone and tablet, with live sync and offline support. See [Use it on all your devices](#use-it-on-all-your-devices-firebase-free).
+- **On all your devices (Firebase, free):** your username and password unlock the same data on your laptop, phone and tablet, with live sync and offline support. Add your family and each person gets their own private Vyro. See [Use it on all your devices](#use-it-on-all-your-devices-firebase-free).
 - **On one computer:** a local server with a SQLite database. See [Quick start](#quick-start).
 
 ## Use it on all your devices (Firebase, free)
 
-This uses Firebase's free **Spark** plan, which needs no credit card. Your data lives in your own Firebase project. You sign in with a **password only**; the app uses one fixed account email behind the scenes, so you never type an email.
+This uses Firebase's free **Spark** plan, which needs no credit card. Your data lives in your own Firebase project. You sign in with a **username and password**; there's no email to type.
 
 **One-time setup (about 10 minutes)**
 
@@ -27,17 +27,18 @@ This uses Firebase's free **Spark** plan, which needs no credit card. Your data 
    npx firebase login        # opens a browser to sign in to your Google account
    npm run deploy            # builds the app and publishes it with the security rules
    ```
-6. Open **`https://<your-project-id>.web.app`**, choose **"First time here? Set your password"**, and set a password of at least 8 characters. **Do this right after deploying.** Once a password is set, nobody can set another.
+6. Open **`https://<your-project-id>.web.app`**, choose **"First time here? Set up Vyro"**, and pick a username and a password of at least 8 characters. **Do this right after deploying.** Once it's set up, nobody else can set it up again.
 
-**On every other device**, open the same address and type your password. On a phone, use your browser's *Add to Home Screen* to get an app icon.
+**On every other device**, open the same address and sign in with your username and password. On a phone, use your browser's *Add to Home Screen* to get an app icon.
 
 **Good to know**
 
 - **Live sync:** a change on one device appears on the others within a second or two, no refresh needed.
 - **Offline:** each device keeps a copy, so the app opens and saves without internet and syncs when you're back online. The sidebar shows *Offline — saved on device*.
 - **Settings → Account** lets you change your password or sign out. Signing out removes the offline copy from that device, which is useful on a shared computer.
-- **Forgot your password?** In the Firebase console go to **Authentication → Users**, delete the user (`vyro-owner@example.com`), then open the app and set a new password. Your data is stored separately from the account, so nothing is lost.
-- **Security:** `firestore.rules` lets only that one account read or write, and only inside the app's own data. Firebase also slows down repeated wrong-password attempts. The `VITE_FIREBASE_*` values aren't secrets; they only say which project to talk to.
+- **Forgot your password?** In the Firebase console go to **Authentication → Users**, delete the user `vyro-owner@example.com`, then open the app, choose *Forgot your password? → set up Vyro again* and use your username. Your data is stored separately from the account, so nothing is lost. (Family members ask you instead; see below.)
+- **Set up before usernames existed?** The first time you sign in after updating, type the username you'd like with your usual password. It's saved as yours. You can change it later in Settings → Family.
+- **Security:** `firestore.rules` lets each person read and write only their own space, and only inside the app's own data. Firebase also slows down repeated wrong-password attempts. The `VITE_FIREBASE_*` values aren't secrets; they only say which project to talk to.
 - **Free limits:** the Spark plan's daily database and hosting allowances are far above what one person's dashboard uses.
 - **Notifications on your phone when Vyro is closed** need a few extra steps. See [Notifications](#notifications).
 - **AI chat isn't available on the free plan.** Keeping an API key secret needs server code (Cloud Functions), which requires the paid Blaze plan. Everything else works, including the rule-based daily briefing, auto day-planner and weekly review. Run the local server version if you want the chat.
@@ -46,6 +47,16 @@ This uses Firebase's free **Spark** plan, which needs no credit card. Your data 
 - **This repository is public:** anyone can read the code, but your data, your password, `.env` and the GitHub secret are never in it. `.env` is ignored by Git, and the reminder job's public logs show only counts and times, never your reminder text.
 
 **Try it without a Firebase project:** `npm run dev:emulator` runs the whole Firebase setup locally using Google's emulators (requires Java), at http://localhost:5173.
+
+## Family: a private Vyro for each person
+
+Whoever set Vyro up can add family members in **Settings → Family**: type their name, a username (like `sam`) and a starting password. They open the same website and sign in with that username and password, and get their own Vyro: dashboard, school, habits, reminders, Google Classroom/Calendar connection and phone notifications.
+
+- **Private for real:** each person's data lives in its own space (`vyro/{username}`, yours stays at `vyro/owner`), and `firestore.rules` only opens a space to the account listed for it. Nobody can see anyone else's Vyro, and that includes the person who set it up.
+- **Passwords:** everyone can change their own in Settings → Account. If a family member forgets theirs, open Settings → Family and use the key button to give them a new one. Devices they were signed in on ask them to sign in again, and their data is untouched.
+- **Removing someone** stops them signing in. Their data stays saved but nobody can open it; adding them back with the same username restores it.
+- **Shared device?** Signing out removes that person's offline copy and stops their reminders on that device, so the next person starts clean.
+- **Free:** a family of four is far inside the Spark plan. Reminders go out to everyone from the same GitHub job; its public log says "Account 2 of 4", never names.
 
 ## Notifications
 
@@ -120,7 +131,7 @@ An assignment is a task with a class, and a business task is a task with a proje
 
 ## How your data is saved
 
-- **Firebase mode** (when `VITE_FIREBASE_*` is set in `.env`): data lives in Cloud Firestore at `vyro/owner/…` in your project, with an offline copy on each signed-in device. Back up whenever you like with *Export backup*.
+- **Firebase mode** (when `VITE_FIREBASE_*` is set in `.env`): data lives in Cloud Firestore at `vyro/owner/…` (and `vyro/{username}/…` for each family member) in your project, with an offline copy on each signed-in device. Back up whenever you like with *Export backup*.
 
 - **Local server mode (`npm start` / `npm run dev`):** data lives in `data/vyro.db`, a SQLite database on your computer. Each change is checked and saved within about half a second. If the server goes away mid-edit, unsent changes are kept in the browser and sent automatically when it comes back.
 - **Automatic backups:** each day the server starts, a JSON snapshot is written to `data/backups/` (the last 14 are kept). A safety snapshot is also taken before any import or full erase.

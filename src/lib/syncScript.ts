@@ -2,7 +2,7 @@
  * The Google Apps Script that brings Google Classroom and Google Calendar into
  * Vyro. The user pastes it into script.google.com from the Google account that
  * has their classes; it runs every 30 minutes as that account and writes what
- * it finds to vyro/owner/inbox (see shared/imports.ts and firestore.rules).
+ * it finds to that person's vyro/{member}/inbox (see shared/imports.ts and firestore.rules).
  *
  * Running inside the user's own account matters for school accounts: schools
  * usually block outside apps from reading student data, but a script you
@@ -13,6 +13,8 @@ import { IMPORT_LIMITS } from '@shared/imports';
 export interface SyncScriptConfig {
   projectId: string;
   apiKey: string;
+  /** Whose space to write to: "owner" or a family member's username. */
+  member: string;
   key: string;
 }
 
@@ -183,7 +185,7 @@ function readCalendar(tz, account, skip) {
 
 function send(docId, body) {
   const doc = Object.assign({ id: docId, key: VYRO.key, syncedAt: Date.now() }, body);
-  const url = 'https://firestore.googleapis.com/v1/projects/' + VYRO.projectId + '/databases/(default)/documents/vyro/owner/inbox/' + docId + '?key=' + VYRO.apiKey;
+  const url = 'https://firestore.googleapis.com/v1/projects/' + VYRO.projectId + '/databases/(default)/documents/vyro/' + VYRO.member + '/inbox/' + docId + '?key=' + VYRO.apiKey;
   const res = UrlFetchApp.fetch(url, { method: 'patch', contentType: 'application/json', payload: JSON.stringify({ fields: toFields(doc) }), muteHttpExceptions: true });
   const code = res.getResponseCode();
   if (code === 403) throw new Error('Vyro refused the update. The sync key was probably reset: copy the script again from Vyro (Settings -> Connections).');

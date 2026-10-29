@@ -144,6 +144,8 @@ export const useStore = create<AppState>()((set, get) => {
         },
       );
       persistence.bindSnapshot(() => get().snapshot());
+      // Signed out elsewhere or password reset: show the "couldn't load" screen with Sign out.
+      persistence.onAccessLost = (message) => set({ loadError: message });
       try {
         const data = await persistence.boot();
         const valid = emptySnapshot() as Record<string, unknown[]>;

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Database, Download, FlaskConical, HardDrive, KeyRound, Keyboard, LogOut, Plug, Trash2, Upload, X } from 'lucide-react';
 import { BACKUP_FORMAT, BACKUP_VERSION, COLLECTIONS, emptySnapshot, validateBackup, type Backup } from '@shared/schema';
 import { hasSampleData, useStore } from '@/lib/store';
@@ -7,13 +7,14 @@ import { todayISO } from '@/lib/dates';
 import { cn, downloadFile, plural } from '@/lib/util';
 import { toast } from '@/lib/toast';
 import { persistence } from '@/lib/persistence';
-import { MIN_PASSWORD_LENGTH, OWNER_EMAIL } from '@/lib/firebaseConfig';
+import { MIN_PASSWORD_LENGTH } from '@/lib/firebaseConfig';
 import { Badge, Button, Card, PageHeader } from '@/components/ui/primitives';
 import { Modal, confirmAction } from '@/components/ui/Modal';
 import { Field, Segmented } from '@/components/ui/Field';
 import { loadSampleData, removeSampleDataWithConfirm } from '@/components/Onboarding';
 import { NotificationSettings } from '@/components/NotificationSettings';
 import { ConnectionsSettings } from '@/components/ConnectionsSettings';
+import { FamilySettings } from '@/components/FamilySettings';
 import { setStartupAnimationEnabled, startupAnimationEnabled } from '@/components/StartupSequence';
 
 export async function exportBackup() {
@@ -60,6 +61,7 @@ export function SettingsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [startup, setStartup] = useState(startupAnimationEnabled);
+  const account = useAccount(s.storageMode === 'firebase');
   const [resetText, setResetText] = useState('');
   const sample = hasSampleData(s);
   const total = COLLECTIONS.filter((c) => c !== 'settings').reduce((n, c) => n + (s[c as Exclude<typeof c, 'settings'>] as unknown[]).length, 0);
@@ -176,7 +178,8 @@ export function SettingsPage() {
 
         <ConnectionsSettings />
 
-        {s.storageMode === 'firebase' && <AccountCard />}
+        {s.storageMode === 'firebase' && account && <AccountCard username={account.username} />}
+        {s.storageMode === 'firebase' && account?.owner && <FamilySettings />}
 
         <Card title="Your data" icon={s.storageMode !== 'local' ? <Database size={15} /> : <HardDrive size={15} />}>
           <div className={cn('rounded-xl border p-3 text-[13px] leading-relaxed', s.storageMode !== 'local' ? 'border-good/25 bg-good/[0.06]' : 'border-warn/30 bg-warn/[0.08]')}>
@@ -335,7 +338,25 @@ export function SettingsPage() {
   );
 }
 
-function AccountCard() {
+/** Who's signed in: their username, and whether they're the owner (who manages Family). */
+function useAccount(enabled: boolean) {
+  const [account, setAccount] = useState<{ username: string; owner: boolean } | null>(null);
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+    void import('@/lib/firebase').then(async (fb) => {
+      const owner = fb.isOwnerAccount();
+      const username = owner ? ((await fb.ownerUsername().catch(() => null)) ?? '') : fb.currentMember();
+      if (!cancelled) setAccount({ username, owner });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled]);
+  return account;
+}
+
+function AccountCard({ username }: { username: string }) {
   const [form, setForm] = useState({ current: '', next: '', confirm: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -380,9 +401,17 @@ function AccountCard() {
 
   return (
     <Card title="Account" icon={<KeyRound size={15} />}>
-      <p className="text-[13px] text-muted">Your password unlocks Vyro on every device. There’s no email to remember; the app uses a fixed account behind the scenes.</p>
+      <p className="text-[13px] text-muted">
+        {username ? (
+          <>
+            Signed in as <b className="font-mono text-fg">{username}</b>. Your username and password unlock your Vyro on every device.
+          </>
+        ) : (
+          'Your password unlocks Vyro on every device. Choose a username in Family below.'
+        )}
+      </p>
       <form className="mt-4 space-y-2" onSubmit={change} noValidate>
-        <input type="email" name="username" autoComplete="username" value={OWNER_EMAIL} readOnly hidden />
+        <input type="text" name="username" autoComplete="username" value={username} readOnly hidden />
         <input id="pw-current" type="password" className="input" placeholder="Current password" autoComplete="current-password" aria-label="Current password" value={form.current} onChange={(e) => setForm({ ...form, current: e.target.value })} />
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <input id="pw-new" type="password" className="input" placeholder="New password" autoComplete="new-password" aria-label="New password" value={form.next} onChange={(e) => setForm({ ...form, next: e.target.value })} />

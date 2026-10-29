@@ -95,6 +95,13 @@ export class Persistence {
   private stopRemote: (() => void) | null = null;
   /** Firebase writes handed to the SDK but not yet confirmed by the server. */
   private unacked = 0;
+  /** Where unsent changes are kept on this device; one per person in Firebase mode. */
+  private pendingKey = PENDING_KEY;
+  /**
+   * Called when Firebase stops letting this session read or write, e.g. the
+   * password was reset on another device. The app then asks to sign in again.
+   */
+  onAccessLost: ((message: string) => void) | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
@@ -132,9 +139,12 @@ export class Persistence {
     if (firebaseEnabled) {
       this.mode = 'firebase';
       this.fb = await import('./firebase');
+      // Someone else may use this device too: keep each person's unsent changes apart.
+      const member = this.fb.currentMember();
+      this.pendingKey = member === 'owner' ? PENDING_KEY : `${PENDING_KEY}.${member}`;
       const { initial, stop } = this.fb.subscribeAll(
         (c) => this.handleRemote(c),
-        (msg) => this.onStatus('error', msg),
+        (msg, code) => (code === 'permission-denied' ? this.accessLost(msg) : this.onStatus('error', msg)),
       );
       this.stopRemote = stop;
       const data = await initial;
@@ -169,7 +179,7 @@ export class Persistence {
     // Re-apply changes that never reached the server last time.
     // Skip any that the database already has (or that were changed since, e.g. on another device).
     const unsent = this.readPending().filter((op) => !isSuperseded(data, op));
-    safeRemove(PENDING_KEY);
+    safeRemove(this.pendingKey);
     if (unsent.length) {
       for (const op of unsent) {
         applyOp(data, op);
@@ -218,7 +228,7 @@ export class Persistence {
       if (!this.localSnapshot) return;
       const ok = safeSet(LOCAL_KEY, JSON.stringify(this.localSnapshot()));
       this.pending.clear();
-      safeRemove(PENDING_KEY);
+      safeRemove(this.pendingKey);
       this.onStatus(ok ? 'saved' : 'error', ok ? undefined : 'Browser storage is full or blocked — export a backup.');
       return;
     }
@@ -272,8 +282,23 @@ export class Persistence {
       .catch((err: unknown) => {
         this.unacked--;
         const code = (err as { code?: string })?.code;
-        this.onStatus('error', code === 'permission-denied' ? 'Firebase rejected a change (permission denied). Sign out and back in.' : err instanceof Error ? err.message : 'Sync failed');
+        if (code === 'permission-denied') {
+          // Keep these changes on the device; they're re-applied after signing in again.
+          for (const op of ops) if (!this.pending.has(keyOf(op))) this.pending.set(keyOf(op), op);
+          this.writePending();
+          this.accessLost('Vyro couldn’t save your changes because your sign-in is no longer valid (for example, your password was reset). Sign out and sign in again; your recent changes are kept on this device.');
+          return;
+        }
+        this.onStatus('error', err instanceof Error ? err.message : 'Sync failed');
       });
+  }
+
+  private accessLost(message: string) {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    this.stop();
+    this.onStatus('error', message);
+    this.onAccessLost?.(message);
   }
 
   private flushOnUnload() {
@@ -282,7 +307,7 @@ export class Persistence {
       // Firestore has stored it. The next start re-applies whatever the database doesn't have.
       const ops = [...this.pending.values()];
       this.flushFirebase();
-      if (ops.length) safeSet(PENDING_KEY, JSON.stringify(ops));
+      if (ops.length) safeSet(this.pendingKey, JSON.stringify(ops));
       return;
     }
     if (this.mode === 'local') {
@@ -317,7 +342,7 @@ export class Persistence {
   }
 
   private readPending(): SyncOp[] {
-    const raw = safeGet(PENDING_KEY);
+    const raw = safeGet(this.pendingKey);
     if (!raw) return [];
     try {
       const list = JSON.parse(raw);
@@ -329,14 +354,14 @@ export class Persistence {
 
   private writePending() {
     if (this.mode === 'local') return;
-    if (this.pending.size) safeSet(PENDING_KEY, JSON.stringify([...this.pending.values()]));
-    else safeRemove(PENDING_KEY);
+    if (this.pending.size) safeSet(this.pendingKey, JSON.stringify([...this.pending.values()]));
+    else safeRemove(this.pendingKey);
   }
 
   /** Replace everything (import / reset). */
   async replaceAll(data: DataSnapshot): Promise<{ skipped: number }> {
     this.pending.clear();
-    safeRemove(PENDING_KEY);
+    safeRemove(this.pendingKey);
     if (this.mode === 'local') {
       if (!safeSet(LOCAL_KEY, JSON.stringify(data))) throw new Error('Browser storage is full or blocked.');
       return { skipped: 0 };

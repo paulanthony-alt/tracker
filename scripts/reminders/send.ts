@@ -5,7 +5,7 @@
  *
  * Each run covers [now − GRACE, now + LOOKAHEAD): items are sent up to
  * LOOKAHEAD minutes early (the text shows the exact time) and late runs still
- * catch up. Every notification is recorded in vyro/owner/sent so it is never
+ * catch up. Every notification is recorded in that person's vyro/{member}/sent so it is never
  * sent twice.
  *
  * Environment:
@@ -20,8 +20,8 @@
  */
 import { createHash } from 'node:crypto';
 import { cert, initializeApp } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { getMessaging } from 'firebase-admin/messaging';
+import { getFirestore, type DocumentReference } from 'firebase-admin/firestore';
+import { getMessaging, type Messaging } from 'firebase-admin/messaging';
 import { DEFAULT_NOTIFICATION_PREFS, dueNotifications, type DueNotification } from '../../shared/notifications.ts';
 import { isValidTimeZone } from '../../shared/calendar.ts';
 import type { CalendarEvent, Habit, NotificationPrefs, Project, Reminder, SchoolClass, Settings, Task } from '../../shared/schema.ts';
@@ -49,7 +49,22 @@ async function main() {
   }
   const app = serviceAccount ? initializeApp({ credential: cert(JSON.parse(serviceAccount)) }) : initializeApp({ projectId: process.env.GCLOUD_PROJECT ?? 'demo-vyro' });
   const db = getFirestore(app);
-  const root = db.collection('vyro').doc('owner');
+  const messaging = getMessaging(app);
+  // Everyone with a Vyro: the owner, plus each family member they added (Settings → Family).
+  const family = await db.collection('vyro').doc('owner').collection('family').get();
+  const members = ['owner', ...family.docs.map((d) => d.id)];
+  let failures = 0;
+  for (const [i, member] of members.entries()) {
+    // Names stay out of the log unless VERBOSE_LOGS=1 (Actions logs of a public repository are public).
+    const who = VERBOSE ? member : `Account ${i + 1} of ${members.length}`;
+    failures += await sendFor(db.collection('vyro').doc(member), messaging, who);
+  }
+  // A failed run shows up red in GitHub Actions so problems don't go unnoticed.
+  if (failures) process.exitCode = 1;
+}
+
+/** Send what's due for one person's space. Returns how many sends failed. */
+async function sendFor(root: DocumentReference, messaging: Messaging, who: string): Promise<number> {
   const all = async <T,>(name: string) => (await root.collection(name).get()).docs.map((d) => d.data() as T);
 
   const [reminders, events, tasks, habits, classes, projects, settingsDocs, devices] = await Promise.all([
@@ -67,15 +82,14 @@ async function main() {
   const timeZone = isValidTimeZone(settings?.timeZone) ? settings!.timeZone! : 'UTC';
 
   if (!devices.length) {
-    console.log('No devices have push turned on (Settings → Notifications → Push to this device).');
-    return;
+    console.log(`${who}: no devices have push turned on (Settings → Notifications → Push to this device).`);
+    return 0;
   }
 
   const now = Date.now();
   const due = dueNotifications({ reminders, events, tasks, habits, classes, projects }, prefs, timeZone, now - GRACE, now + LOOKAHEAD);
-  console.log(`${due.length} notification(s) in window; ${devices.length} device(s).${VERBOSE ? ` Time zone ${timeZone}.` : ''}`);
+  console.log(`${who}: ${due.length} notification(s) in window; ${devices.length} device(s).${VERBOSE ? ` Time zone ${timeZone}.` : ''}`);
 
-  const messaging = getMessaging(app);
   const dead = new Set<string>();
   let sent = 0;
   let skipped = 0;
@@ -143,9 +157,8 @@ async function main() {
     const old = await root.collection('sent').where('sentAt', '<', now - KEEP_SENT_MS).get();
     await Promise.all(old.docs.map((d) => d.ref.delete()));
   }
-  console.log(`Done: ${sent} sent, ${skipped} already sent earlier${failures ? `, ${failures} failed` : ''}${DRY_RUN ? ' (dry run)' : ''}.`);
-  // A failed run shows up red in GitHub Actions so problems don't go unnoticed.
-  if (failures) process.exitCode = 1;
+  console.log(`${who}: done, ${sent} sent, ${skipped} already sent earlier${failures ? `, ${failures} failed` : ''}${DRY_RUN ? ' (dry run)' : ''}.`);
+  return failures;
 }
 
 /** Log line for a notification. Titles stay out of the log unless VERBOSE_LOGS=1. */

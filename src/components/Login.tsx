@@ -29,16 +29,36 @@ function PasswordInput({ id, value, onChange, placeholder, autoComplete, autoFoc
   );
 }
 
+const LAST_USERNAME_KEY = 'vyro.lastUsername';
+const readLastUsername = () => {
+  try {
+    return localStorage.getItem(LAST_USERNAME_KEY) ?? '';
+  } catch {
+    return '';
+  }
+};
+
 export function LoginScreen() {
   const [mode, setMode] = useState<'signin' | 'create'>('signin');
+  const [username, setUsername] = useState(readLastUsername);
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  /** The owner's username; null if usernames haven't been set up yet (new, or set up before family accounts). */
+  const [ownerName, setOwnerName] = useState<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    void loadFirebase()
+      .then((fb) => fb.ownerUsername())
+      .then(setOwnerName)
+      .catch(() => setOwnerName(null));
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (!username.trim()) return setError('Enter your username.');
     if (!password) return setError('Enter your password.');
     if (mode === 'create') {
       if (password.length < MIN_PASSWORD_LENGTH) return setError(`Use at least ${MIN_PASSWORD_LENGTH} characters.`);
@@ -47,8 +67,13 @@ export function LoginScreen() {
     setBusy(true);
     try {
       const fb = await loadFirebase();
-      if (mode === 'create') await fb.createAccount(password);
-      else await fb.signIn(password);
+      if (mode === 'create') await fb.createAccount(username, password);
+      else await fb.signIn(username, password);
+      try {
+        localStorage.setItem(LAST_USERNAME_KEY, username.trim().toLowerCase());
+      } catch {
+        /* not remembered; that's fine */
+      }
       // The auth watcher swaps this screen for the app.
     } catch (err) {
       const fb = await loadFirebase();
@@ -57,6 +82,7 @@ export function LoginScreen() {
     }
   };
 
+  const firstRun = ownerName === null;
   return (
     <div className="flex min-h-full items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
@@ -69,40 +95,62 @@ export function LoginScreen() {
             <span className="led text-accent" aria-hidden />
             {mode === 'create' ? 'First-time setup' : 'Secure access'}
           </p>
-          <h1 className="text-2xl font-semibold tracking-[-0.02em]">{mode === 'create' ? 'Set your password' : 'Welcome back'}</h1>
-          <p className="mt-1.5 text-[13px] text-muted">{mode === 'create' ? 'This password unlocks Vyro on all your devices.' : 'Enter your password to continue.'}</p>
+          <h1 className="text-2xl font-semibold tracking-[-0.02em]">{mode === 'create' ? 'Set up Vyro' : 'Welcome back'}</h1>
+          <p className="mt-1.5 text-[13px] text-muted">
+            {mode === 'create' ? 'Choose a username and password. They unlock Vyro on all your devices.' : 'Sign in with your username and password.'}
+          </p>
         </div>
         <form onSubmit={submit} className="card hud space-y-3 p-5" noValidate>
-          {/* Hidden username so password managers save and fill this login correctly. */}
-          <input type="email" name="username" autoComplete="username" value={OWNER_EMAIL} readOnly hidden />
-          <PasswordInput id="password" value={password} onChange={setPassword} placeholder={mode === 'create' ? 'New password' : 'Password'} autoComplete={mode === 'create' ? 'new-password' : 'current-password'} autoFocus />
+          <input
+            id="username"
+            name="username"
+            className="input !h-11 text-[15px]"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Username"
+            aria-label="Username"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            autoFocus={!username}
+          />
+          <PasswordInput id="password" value={password} onChange={setPassword} placeholder={mode === 'create' ? 'New password' : 'Password'} autoComplete={mode === 'create' ? 'new-password' : 'current-password'} autoFocus={!!username} />
           {mode === 'create' && <PasswordInput id="password-confirm" value={confirm} onChange={setConfirm} placeholder="Confirm password" autoComplete="new-password" />}
-          {mode === 'create' && <p className="text-xs text-faint">At least {MIN_PASSWORD_LENGTH} characters. You’ll stay signed in on each device until you sign out.</p>}
+          {mode === 'create' && <p className="text-xs text-faint">Username: letters and numbers, like “alex”. Password: at least {MIN_PASSWORD_LENGTH} characters.</p>}
+          {mode === 'signin' && firstRun && <p className="text-xs leading-relaxed text-faint">First sign-in since usernames were added? Type the username you’d like (for example your first name). It’s saved as yours.</p>}
           {error && (
             <p role="alert" className="rounded-md border border-bad/30 bg-bad/10 px-3 py-2 text-[13px] text-bad">
               {error}
             </p>
           )}
           <Button type="submit" variant="primary" className="!h-10 w-full" disabled={busy} icon={busy ? <Loader2 size={15} className="animate-spin" /> : <Lock size={15} />}>
-            {mode === 'create' ? 'Create password' : 'Unlock'}
+            {mode === 'create' ? 'Create account' : 'Unlock'}
           </Button>
         </form>
         <div className="mt-4 text-center text-xs text-faint">
-          {mode === 'signin' ? (
-            <button type="button" className="hover:text-fg" onClick={() => (setMode('create'), setError(''))}>
-              First time here? Set your password
+          {mode === 'create' ? (
+            <button type="button" className="hover:text-fg" onClick={() => (setMode('signin'), setError(''), setConfirm(''))}>
+              Already set up? Sign in instead
             </button>
           ) : (
-            <button type="button" className="hover:text-fg" onClick={() => (setMode('signin'), setError(''), setConfirm(''))}>
-              Already set a password? Unlock instead
-            </button>
+            firstRun && (
+              <button type="button" className="hover:text-fg" onClick={() => (setMode('create'), setError(''))}>
+                First time here? Set up Vyro
+              </button>
+            )
           )}
         </div>
         {mode === 'signin' && (
           <details className="mx-auto mt-5 max-w-xs text-center text-xs text-faint">
             <summary className="cursor-pointer hover:text-fg">Forgot your password?</summary>
+            <p className="mt-2 leading-relaxed">Ask the person who set up Vyro for your family. They can give you a new one in Settings → Family.</p>
             <p className="mt-2 leading-relaxed">
-              In the Firebase console, open Authentication → Users, delete the Vyro user, then come back here and choose “Set your password”. Your data is kept.
+              If that’s you: in the Firebase console, open Authentication → Users and delete <span className="font-mono">{OWNER_EMAIL}</span>, then{' '}
+              <button type="button" className="text-accent hover:underline" onClick={() => (setMode('create'), setError(''))}>
+                set up Vyro again
+              </button>{' '}
+              with your username. Your data is kept.
             </p>
           </details>
         )}

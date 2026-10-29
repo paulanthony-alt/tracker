@@ -45,7 +45,7 @@ const cal = (id: string, events: ReturnType<typeof ev>[], opts: { hidden?: boole
 });
 
 /** Run sync() once and return what it sent. `classroom: false` simulates the service not being added. */
-export function runSyncScript(cfg = { projectId: 'demo-vyro', apiKey: 'test-api-key', key: 'k'.repeat(40) }, opts: { classroom?: boolean } = {}) {
+export function runSyncScript(cfg = { projectId: 'demo-vyro', apiKey: 'test-api-key', member: 'owner', key: 'k'.repeat(40) }, opts: { classroom?: boolean } = {}) {
   const requests: CapturedRequest[] = [];
   const logs: string[] = [];
   const Utilities = {

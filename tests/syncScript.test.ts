@@ -43,6 +43,11 @@ describe('Google sync script', () => {
     expect(records.some((r) => r.title === 'Declined meeting' || r.title === 'Hidden')).toBe(false);
   });
 
+  it("writes to a family member's own space", () => {
+    const { requests } = runSyncScript({ projectId: 'demo-vyro', apiKey: 'test-api-key', member: 'sam', key: 'k'.repeat(40) });
+    for (const r of requests) expect(r.url).toContain('/documents/vyro/sam/inbox/');
+  });
+
   it('still syncs the calendar when the Classroom service is not added', () => {
     const { requests, logs } = runSyncScript(undefined, { classroom: false });
     expect(requests).toHaveLength(1);

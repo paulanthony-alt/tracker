@@ -197,9 +197,22 @@ function MainContent({ ready, loadError }: { ready: boolean; loadError: string |
           <p className="mt-3 font-medium">Couldn’t load your data</p>
           <p className="mt-1 text-[13px] text-muted">{loadError}</p>
           <p className="mt-3 text-xs text-faint">{firebaseEnabled ? 'Your data is safe in Firebase. Check your connection, then reload.' : 'Your data is safe in the database. Check that the server is running, then reload.'}</p>
-          <Button className="mt-4" onClick={() => location.reload()}>
-            Reload
-          </Button>
+          <div className="mt-4 flex justify-center gap-2">
+            <Button onClick={() => location.reload()}>Reload</Button>
+            {firebaseEnabled && (
+              // e.g. your password was reset on another device: sign in again with the new one.
+              <Button
+                variant="ghost"
+                onClick={async () => {
+                  const fb = await import('@/lib/firebase');
+                  await fb.signOutUser();
+                  location.reload();
+                }}
+              >
+                Sign out
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     );

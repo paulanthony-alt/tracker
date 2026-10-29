@@ -29,7 +29,7 @@ beforeEach(async () => {
 async function replay(key: string) {
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-10-28T16:00:00Z'));
-  const { requests } = runSyncScript({ projectId: 'demo-vyro', apiKey: 'test-api-key', key });
+  const { requests } = runSyncScript({ projectId: 'demo-vyro', apiKey: 'test-api-key', member: 'owner', key });
   vi.useRealTimers();
   return Promise.all(
     requests.map((r) =>

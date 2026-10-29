@@ -1,18 +1,35 @@
 rules_version = '2';
 
-// Vyro — only the single owner account can read or write.
+// Vyro: one private space per person in the family.
 //
-// The app signs in with one fixed email (you only ever type the password).
-// If you change OWNER_EMAIL in src/lib/firebaseConfig.ts, change it here too.
-// Data lives at vyro/owner/{collection}/{id}, independent of the account's uid,
-// so resetting the account (delete + set a new password) keeps your data.
+// Each person's data lives at vyro/{member}/{collection}/{id}. The person who
+// set Vyro up is the "owner": their space is vyro/owner, and they sign in with
+// the fixed email below (if you change OWNER_EMAIL in src/lib/firebaseConfig.ts,
+// change it here too). Resetting the owner account (delete it in the console and
+// set it up again) keeps their data, because the path doesn't depend on the uid.
+//
+// Everyone else is a family member the owner added in Settings → Family. Their
+// space is vyro/{username}, and only the account listed for that username in
+// vyro/owner/family/{username} can open it. Nobody can read anyone else's space,
+// the owner included.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isOwner() {
+    function signedIn() {
       return request.auth != null
-        && request.auth.token.firebase.sign_in_provider == 'password'
-        && request.auth.token.email == 'vyro-owner@example.com';
+        && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+
+    function isOwner() {
+      return signedIn() && request.auth.token.email == 'vyro-owner@example.com';
+    }
+
+    // The account that may open vyro/{member}.
+    function isMember(member) {
+      return (member == 'owner' && isOwner())
+        || (member != 'owner' && signedIn()
+            && member.matches('^[a-z][a-z0-9]{1,19}$')
+            && get(/databases/$(database)/documents/vyro/owner/family/$(member)).data.uid == request.auth.uid);
     }
 
     function knownCollection(name) {
@@ -22,34 +39,48 @@ service cloud.firestore {
                       'devices',
                       // Google Classroom / Calendar connection: the sync key and import
                       // bookkeeping (links), and what the Google sync script sent (inbox).
-                      'links', 'inbox'];
+                      'links', 'inbox',
+                      // The owner's list of family members (only meaningful under vyro/owner).
+                      'family'];
     }
 
-    // The sync key the Google script must present. Lives in vyro/owner/links/key.
-    function syncKey() {
-      return get(/databases/$(database)/documents/vyro/owner/links/key).data.key;
+    // The sync key a person's Google script must present. Lives in vyro/{member}/links/key.
+    function syncKey(member) {
+      return get(/databases/$(database)/documents/vyro/$(member)/links/key).data.key;
     }
 
-    match /vyro/owner/{collection}/{docId} {
-      allow read, delete: if isOwner() && knownCollection(collection);
+    match /vyro/{member}/{collection}/{docId} {
+      allow read, delete: if knownCollection(collection) && isMember(member);
       // Every record must carry its own id, matching the document id.
-      allow create, update: if isOwner() && knownCollection(collection)
+      allow create, update: if knownCollection(collection) && isMember(member)
         && request.resource.data.id == docId;
     }
 
     // The Google Apps Script isn't signed in to Vyro. It may only replace its own
-    // inbox document, and only with the secret sync key shown in Settings →
-    // Connections. It can't read anything, and can't touch your real records.
-    match /vyro/owner/inbox/{docId} {
+    // inbox document in one person's space, and only with that person's secret sync
+    // key (Settings → Connections). It can't read anything or touch real records.
+    match /vyro/{member}/inbox/{docId} {
       allow create, update: if docId.matches('^(classroom|calendar)-[a-z0-9]{6,40}$')
         && request.resource.data.keys().hasOnly(['id', 'key', 'source', 'account', 'syncedAt', 'from', 'to', 'items'])
         && request.resource.data.id == docId
         && request.resource.data.source == docId.split('-')[0]
         && request.resource.data.key is string
         && request.resource.data.key.size() >= 32
-        && request.resource.data.key == syncKey()
+        && request.resource.data.key == syncKey(member)
         && request.resource.data.items is list
         && request.resource.data.items.size() <= 600;
+    }
+
+    // Username → sign-in email, so the sign-in screen can turn "sam" into Sam's
+    // account. Anyone may look up one username they already know; nobody can list
+    // them. Only the owner adds, changes or removes entries. "_owner" records the
+    // owner's username once it's chosen.
+    match /vyro-directory/{name} {
+      allow get: if true;
+      allow create, update: if isOwner()
+        && request.resource.data.id == name
+        && request.resource.data.keys().hasOnly(['id', 'email', 'username']);
+      allow delete: if isOwner();
     }
 
     // Everything else is closed. (The notification sender uses the Admin SDK,

@@ -43,6 +43,7 @@ export function ConnectionsSettings() {
   const [key, setKey] = useState<string | null | undefined>(undefined);
   const [inbox, setInbox] = useState<unknown[]>([]);
   const [busy, setBusy] = useState(false);
+  const [member, setMember] = useState('owner');
 
   useEffect(() => {
     if (storageMode !== 'firebase') return;
@@ -50,6 +51,7 @@ export function ConnectionsSettings() {
     let cancelled = false;
     void import('@/lib/firebase').then((fb) => {
       if (cancelled) return;
+      setMember(fb.currentMember());
       stops.push(fb.watchSyncKey(setKey), fb.watchInbox(setInbox));
     });
     return () => {
@@ -59,7 +61,7 @@ export function ConnectionsSettings() {
   }, [storageMode]);
 
   const connections = useMemo(() => parseInbox(inbox), [inbox]);
-  const script = useMemo(() => (key ? buildSyncScript({ projectId: firebaseConfig.projectId ?? '', apiKey: firebaseConfig.apiKey ?? '', key }) : ''), [key]);
+  const script = useMemo(() => (key ? buildSyncScript({ projectId: firebaseConfig.projectId ?? '', apiKey: firebaseConfig.apiKey ?? '', member, key }) : ''), [key, member]);
 
   if (storageMode !== 'firebase')
     return (
