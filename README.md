@@ -60,7 +60,7 @@ Whoever set Vyro up can add family members in **Settings → Family**: type thei
 
 ## Notifications
 
-**While Vyro is open** (any version, no setup), reminders, upcoming events, tasks with a due time, a morning summary and an optional evening habit nudge pop up as cards inside the app at the exact time. If you allow it, they also appear as system notifications, so you see them from other tabs. Important reminders stay on screen until you tap Done or Snooze. Anything that came due while the app was closed is shown when you reopen it. Choose what you get in **Settings → Notifications**.
+**While Vyro is open** (any version, no setup), reminders, upcoming events, tasks with a due time, a morning summary, a 5:30 PM preview of everything on tomorrow's calendar and an optional evening habit nudge pop up as cards inside the app at the exact time. If you allow it, they also appear as system notifications, so you see them from other tabs. Important reminders stay on screen until you tap Done or Snooze. Anything that came due while the app was closed is shown when you reopen it. Choose what you get in **Settings → Notifications**.
 
 **On your phone when Vyro is closed** (Firebase version, free) uses push notifications. Firebase can deliver push for free but can't *schedule* it on the free plan, so a small script on GitHub Actions checks every 10 minutes and pushes anything due before the next check. Notifications can arrive a few minutes early, and they always show the exact time. GitHub Actions is free for public repositories like this one. GitHub's scheduled runs are sometimes delayed by a few minutes at busy times.
 

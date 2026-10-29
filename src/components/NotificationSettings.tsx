@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BellRing, Smartphone, Trash2 } from 'lucide-react';
 import type { NotificationPrefs } from '@shared/schema';
-import { DEFAULT_NOTIFICATION_PREFS } from '@shared/notifications';
+import { DEFAULT_NOTIFICATION_PREFS, tomorrowTimeOf } from '@shared/notifications';
 import { useStore } from '@/lib/store';
 import { requestSystemPermission, sendTestNotification, systemPermission, type PermissionState } from '@/lib/notifier';
 import { firebaseEnabled } from '@/lib/firebaseConfig';
@@ -201,13 +201,19 @@ export function NotificationSettings() {
           </Row>
           <Row label="Morning summary" hint="What’s due, overdue and on the calendar">
             <div className="flex items-center gap-2">
-              {prefs.digestTime !== null && <input type="time" className="input !h-8 !w-28" value={prefs.digestTime} onChange={(e) => e.target.value && set({ digestTime: e.target.value })} aria-label="Morning summary time" />}
+              {prefs.digestTime !== null && <input type="time" className="input !h-8 !w-[8.5rem]" value={prefs.digestTime} onChange={(e) => e.target.value && set({ digestTime: e.target.value })} aria-label="Morning summary time" />}
               <Toggle id="notif-digest" label="Morning summary" checked={prefs.digestTime !== null} onChange={(v) => set({ digestTime: v ? DEFAULT_NOTIFICATION_PREFS.digestTime : null })} />
+            </div>
+          </Row>
+          <Row label="Tomorrow preview" hint="The day before: everything on tomorrow’s calendar">
+            <div className="flex items-center gap-2">
+              {tomorrowTimeOf(prefs) !== null && <input type="time" className="input !h-8 !w-[8.5rem]" value={tomorrowTimeOf(prefs) ?? ''} onChange={(e) => e.target.value && set({ tomorrowTime: e.target.value })} aria-label="Tomorrow preview time" />}
+              <Toggle id="notif-tomorrow" label="Tomorrow preview" checked={tomorrowTimeOf(prefs) !== null} onChange={(v) => set({ tomorrowTime: v ? DEFAULT_NOTIFICATION_PREFS.tomorrowTime : null })} />
             </div>
           </Row>
           <Row label="Habit nudge" hint="Evening reminder for unfinished daily habits">
             <div className="flex items-center gap-2">
-              {prefs.habitNudgeTime !== null && <input type="time" className="input !h-8 !w-28" value={prefs.habitNudgeTime} onChange={(e) => e.target.value && set({ habitNudgeTime: e.target.value })} aria-label="Habit nudge time" />}
+              {prefs.habitNudgeTime !== null && <input type="time" className="input !h-8 !w-[8.5rem]" value={prefs.habitNudgeTime} onChange={(e) => e.target.value && set({ habitNudgeTime: e.target.value })} aria-label="Habit nudge time" />}
               <Toggle id="notif-habits" label="Habit nudge" checked={prefs.habitNudgeTime !== null} onChange={(v) => set({ habitNudgeTime: v ? '20:00' : null })} />
             </div>
           </Row>

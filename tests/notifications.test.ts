@@ -12,7 +12,7 @@ const task = (p: Partial<Task>): Task => ({ ...base, id: 't1', title: 'Problem s
 const empty = { reminders: [], events: [], tasks: [], habits: [] as Habit[] };
 const at = (iso: string) => Date.parse(iso);
 /** Prefs without the morning digest, for tests about other kinds. */
-const ND = { ...P, digestTime: null };
+const ND = { ...P, digestTime: null, tomorrowTime: null };
 
 describe('time zones', () => {
   it('converts local wall time to UTC, including across daylight saving', () => {
@@ -49,7 +49,8 @@ describe('dueNotifications', () => {
 
   it('ignores done reminders, undated reminders and anything outside the window', () => {
     const data = { ...empty, reminders: [rem({ date: '2026-10-28', time: '07:30', done: true }), rem({ id: 'r2' }), rem({ id: 'r3', date: '2026-10-29', time: '07:30' })] };
-    expect(dueNotifications(data, P, NY, at('2026-10-28T00:00:00Z'), at('2026-10-29T00:00:00Z'))).toEqual([]);
+    // (The r3 reminder on the 29th is still in the evening-before preview; that's tested on its own below.)
+    expect(dueNotifications(data, { ...P, tomorrowTime: null }, NY, at('2026-10-28T00:00:00Z'), at('2026-10-29T00:00:00Z'))).toEqual([]);
   });
 
   it('warns before repeating events, using the lead time', () => {
@@ -79,23 +80,67 @@ describe('dueNotifications', () => {
 
   it('nudges about unfinished habits when enabled', () => {
     const habit: Habit = { ...base, id: 'h', name: 'Read 20 minutes', color: '#fff', frequency: 'daily', targetPerWeek: 1, completions: [], archived: false, order: 0 };
-    const prefs = { ...P, habitNudgeTime: '20:00', digestTime: null };
+    const prefs = { ...P, habitNudgeTime: '20:00', digestTime: null, tomorrowTime: null };
     const due = dueNotifications({ ...empty, habits: [habit] }, prefs, NY, at('2026-10-29T00:00:00Z'), at('2026-10-29T01:00:00Z'));
     expect(due.map((d) => d.title)).toEqual(['1 habit left today']);
     const done = { ...habit, completions: ['2026-10-28'] };
     expect(dueNotifications({ ...empty, habits: [done] }, prefs, NY, at('2026-10-29T00:00:00Z'), at('2026-10-29T01:00:00Z'))).toEqual([]);
   });
 
+  describe('tomorrow preview', () => {
+    // Wednesday Oct 28, 5:30 PM in New York (EDT) is 21:30 UTC.
+    const evening = [at('2026-10-28T21:00:00Z'), at('2026-10-28T22:00:00Z')] as const;
+    const only = { ...P, digestTime: null, eventLeadMinutes: null, taskLeadMinutes: null, reminders: false };
+    const cls = { ...base, id: 'c1', name: 'AP Biology', color: '#fff', level: 'ap' as const, credits: 1, categories: [], archived: false };
+    const project = { ...base, id: 'p1', name: 'Card Show', status: 'active' as const, color: '#fff', tags: [], contacts: [], transactions: [], archived: false, milestones: [{ id: 'm1', title: 'Book table', dueDate: '2026-10-29', done: false }] };
+    const data = {
+      ...empty,
+      classes: [cls],
+      projects: [project as unknown as NonNullable<Parameters<typeof dueNotifications>[0]['projects']>[number]],
+      events: [evt({ id: 'e1', title: 'Soccer practice', date: '2026-10-27', startTime: '16:00', location: 'North field', recurrence: { freq: 'daily', interval: 1 } }), evt({ id: 'e2', title: 'Field trip', date: '2026-10-29' })],
+      tasks: [
+        task({ id: 't1', title: 'Unit 4 Test', dueDate: '2026-10-29', dueTime: '08:00', classId: 'c1' }),
+        task({ id: 't2', title: 'Already done', dueDate: '2026-10-29', status: 'done' }),
+        task({ id: 't3', title: 'Today, not tomorrow', dueDate: '2026-10-28' }),
+      ],
+      reminders: [rem({ id: 'r1', title: 'Permission slip', date: '2026-10-29', time: '07:00' })],
+    };
+
+    it('goes out at 5:30 PM the day before and lists everything on tomorrow’s calendar, earliest first', () => {
+      const due = dueNotifications(data, only, NY, ...evening);
+      expect(due).toHaveLength(1);
+      expect(due[0]).toMatchObject({ kind: 'tomorrow', key: 'tomorrow:2026-10-29', title: 'Tomorrow: 5 things on your calendar', url: '#/calendar?view=day&date=2026-10-29' });
+      expect(new Date(due[0].at).toISOString()).toBe('2026-10-28T21:30:00.000Z');
+      expect(due[0].body.split('\n')).toEqual(['7 AM · Reminder: Permission slip', 'Due 8 AM · Unit 4 Test (AP Biology)', '4 PM · Soccer practice (North field)', 'All day · Field trip', 'Milestone · Book table (Card Show)']);
+    });
+
+    it('stays quiet when tomorrow is empty, when turned off, and is on by default for older settings', () => {
+      expect(dueNotifications(empty, only, NY, ...evening)).toEqual([]);
+      expect(dueNotifications(data, { ...only, tomorrowTime: null }, NY, ...evening)).toEqual([]);
+      const { tomorrowTime: _omit, ...older } = only;
+      void _omit;
+      expect(dueNotifications(data, older, NY, ...evening).map((d) => d.kind)).toEqual(['tomorrow']);
+      expect(dueNotifications(data, { ...only, tomorrowTime: '19:00' }, NY, ...evening)).toEqual([]);
+    });
+
+    it('keeps long days short', () => {
+      const busy = { ...empty, tasks: Array.from({ length: 9 }, (_, i) => task({ id: `b${i}`, title: `Item ${i}`, dueDate: '2026-10-29' })) };
+      const body = dueNotifications(busy, only, NY, ...evening)[0].body.split('\n');
+      expect(body).toHaveLength(7);
+      expect(body[6]).toBe('+3 more');
+    });
+  });
+
   it('respects the master switch and per-type switches', () => {
     const data = { ...empty, reminders: [rem({ date: '2026-10-28', time: '07:30' })] };
     const w = [at('2026-10-28T11:00:00Z'), at('2026-10-28T12:00:00Z')] as const;
     expect(dueNotifications(data, { ...P, enabled: false }, NY, ...w)).toEqual([]);
-    expect(dueNotifications(data, { ...P, reminders: false, digestTime: null }, NY, ...w)).toEqual([]);
+    expect(dueNotifications(data, { ...P, reminders: false, digestTime: null, tomorrowTime: null }, NY, ...w)).toEqual([]);
   });
 
   it('changes the key when a reminder is rescheduled, so it notifies again', () => {
-    const a = dueNotifications({ ...empty, reminders: [rem({ date: '2026-10-28', time: '07:30' })] }, P, NY, 0, at('2027-01-01T00:00:00Z'))[0];
-    const b = dueNotifications({ ...empty, reminders: [rem({ date: '2026-10-28', time: '07:40' })] }, P, NY, 0, at('2027-01-01T00:00:00Z'))[0];
+    const a = dueNotifications({ ...empty, reminders: [rem({ date: '2026-10-28', time: '07:30' })] }, ND, NY, 0, at('2027-01-01T00:00:00Z'))[0];
+    const b = dueNotifications({ ...empty, reminders: [rem({ date: '2026-10-28', time: '07:40' })] }, ND, NY, 0, at('2027-01-01T00:00:00Z'))[0];
     expect(a.key).not.toBe(b.key);
   });
 });

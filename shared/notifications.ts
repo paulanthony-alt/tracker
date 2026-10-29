@@ -14,14 +14,18 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   taskLeadMinutes: 60,
   digestTime: '07:30',
   habitNudgeTime: null,
+  tomorrowTime: '17:30',
 };
+
+/** When the "tomorrow" preview goes out, or null if it's off. Older saved settings don't have it yet: they get the default. */
+export const tomorrowTimeOf = (prefs: NotificationPrefs) => (prefs.tomorrowTime === undefined ? DEFAULT_NOTIFICATION_PREFS.tomorrowTime! : prefs.tomorrowTime);
 
 export interface DueNotification {
   /** Stable id for de-duplication. Changes if the item is rescheduled, so it notifies again. */
   key: string;
   /** When it should fire (UTC ms). */
   at: number;
-  kind: 'reminder' | 'event' | 'task' | 'digest' | 'habits';
+  kind: 'reminder' | 'event' | 'task' | 'digest' | 'habits' | 'tomorrow';
   title: string;
   body: string;
   /** In-app route to open (hash), e.g. "#/tasks". */
@@ -41,6 +45,33 @@ export interface NotificationData {
 }
 
 const minutes = (n: number) => n * 60_000;
+const MAX_PREVIEW_LINES = 6;
+
+/**
+ * Everything on the calendar for one date, timed items first: events, tasks and
+ * assignments due, reminders and project milestones. One line each.
+ */
+function calendarFor(data: NotificationData, date: string): { sort: number; line: string }[] {
+  const at = (time?: string) => (time ? Number(time.slice(0, 2)) * 60 + Number(time.slice(3)) : 24 * 60);
+  const items: { sort: number; line: string }[] = [];
+  for (const e of data.events) {
+    if (!occurrencesInRange(e.date, e.recurrence, date, date).length) continue;
+    items.push({ sort: at(e.startTime), line: `${e.startTime ? formatClock(e.startTime) : 'All day'} · ${e.title}${e.location ? ` (${e.location})` : ''}` });
+  }
+  for (const t of data.tasks) {
+    if (t.status === 'done' || t.archived || t.dueDate !== date) continue;
+    const where = data.classes?.find((c) => c.id === t.classId)?.name ?? data.projects?.find((p) => p.id === t.projectId)?.name;
+    items.push({ sort: at(t.dueTime), line: `${t.dueTime ? `Due ${formatClock(t.dueTime)}` : 'Due'} · ${t.title}${where ? ` (${where})` : ''}` });
+  }
+  for (const r of data.reminders) {
+    if (r.done || r.date !== date) continue;
+    items.push({ sort: at(r.time), line: `${r.time ? `${formatClock(r.time)} · ` : ''}Reminder: ${r.title}` });
+  }
+  for (const p of data.projects ?? []) {
+    for (const m of p.milestones) if (!m.done && m.dueDate === date) items.push({ sort: at(), line: `Milestone · ${m.title} (${p.name})` });
+  }
+  return items.sort((a, b) => a.sort - b.sort);
+}
 const leadText = (lead: number) => (lead === 0 ? 'now' : lead < 60 ? `in ${lead} min` : lead % 60 === 0 ? `in ${lead / 60} hr` : `in ${Math.floor(lead / 60)} hr ${lead % 60} min`);
 
 /**
@@ -141,6 +172,27 @@ export function dueNotifications(data: NotificationData, prefs: NotificationPref
         title: 'Your day',
         body: `${parts.join(' · ')}${first ? `. Start with: ${first.title}` : ''}`,
         url: '#/',
+      });
+    }
+  }
+
+  const previewTime = tomorrowTimeOf(prefs);
+  if (previewTime) {
+    for (const date of days) {
+      const at = zonedTime(date, previewTime, timeZone);
+      if (!inWindow(at)) continue;
+      const next = addDays(date, 1);
+      const items = calendarFor(data, next);
+      if (!items.length) continue;
+      const lines = items.slice(0, MAX_PREVIEW_LINES).map((i) => i.line);
+      if (items.length > MAX_PREVIEW_LINES) lines.push(`+${items.length - MAX_PREVIEW_LINES} more`);
+      out.push({
+        key: `tomorrow:${next}`,
+        at,
+        kind: 'tomorrow',
+        title: `Tomorrow: ${items.length} thing${items.length === 1 ? '' : 's'} on your calendar`,
+        body: lines.join('\n'),
+        url: `#/calendar?view=day&date=${next}`,
       });
     }
   }

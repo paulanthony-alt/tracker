@@ -374,6 +374,8 @@ export const notificationPrefsSchema = z.object({
   digestTime: isoTime.nullable(),
   /** Evening nudge for unfinished daily habits; null = off. */
   habitNudgeTime: isoTime.nullable(),
+  /** Day-before preview of everything on tomorrow's calendar; null = off. Missing = the default (5:30 PM). */
+  tomorrowTime: isoTime.nullable().optional(),
 });
 export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>;
 

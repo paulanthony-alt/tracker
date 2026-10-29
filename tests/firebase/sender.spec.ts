@@ -40,7 +40,7 @@ function reminderIn(mins: number, title = 'Bring permission slip') {
 }
 
 async function seed(reminder = reminderIn(10)) {
-  await put('vyro/owner/settings/settings', { id: 'settings', timeZone: 'UTC', notifications: { ...DEFAULT_NOTIFICATION_PREFS, digestTime: null } });
+  await put('vyro/owner/settings/settings', { id: 'settings', timeZone: 'UTC', notifications: { ...DEFAULT_NOTIFICATION_PREFS, digestTime: null, tomorrowTime: null } });
   await put(`vyro/owner/reminders/${reminder.id}`, reminder);
   await put('vyro/owner/devices/d1', { id: 'd1', token: 'fake-token', label: 'Test phone', createdAt: 1, updatedAt: 1 });
   return reminder;
@@ -87,7 +87,7 @@ describe('push sender', () => {
 
   it("sends each family member's reminders from their own space, and keeps names out of the log", async () => {
     await put('vyro/owner/family/sam', { id: 'sam', username: 'sam', name: 'Sam', uid: 'u-sam', email: 'sam.a1@member.vyro.example.com', createdAt: 1, updatedAt: 1 });
-    await put('vyro/sam/settings/settings', { id: 'settings', timeZone: 'UTC', notifications: { ...DEFAULT_NOTIFICATION_PREFS, digestTime: null } });
+    await put('vyro/sam/settings/settings', { id: 'settings', timeZone: 'UTC', notifications: { ...DEFAULT_NOTIFICATION_PREFS, digestTime: null, tomorrowTime: null } });
     await put('vyro/sam/reminders/r9', { ...reminderIn(10, 'Sam’s soccer cleats'), id: 'r9' });
     await put('vyro/sam/devices/d9', { id: 'd9', token: 'fake-token-sam', label: 'Sam’s phone', createdAt: 1, updatedAt: 1 });
     await seed();

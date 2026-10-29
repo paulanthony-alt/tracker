@@ -1,4 +1,4 @@
-import { Bell, CalendarClock, CheckSquare, Flame, Sun, X } from 'lucide-react';
+import { Bell, CalendarClock, CalendarDays, CheckSquare, Flame, Sun, X } from 'lucide-react';
 import { useAlerts, type ActiveAlert } from '@/lib/notifier';
 import { useStore } from '@/lib/store';
 import { openModal } from '@/lib/ui';
@@ -13,6 +13,7 @@ const ICON: Record<ActiveAlert['kind'], React.ReactNode> = {
   task: <CheckSquare size={16} />,
   digest: <Sun size={16} />,
   habits: <Flame size={16} />,
+  tomorrow: <CalendarDays size={16} />,
 };
 
 function snoozeReminder(id: string, minutes: number) {
@@ -43,7 +44,7 @@ function AlertCard({ a }: { a: ActiveAlert }) {
         <span className={cn('mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg', a.important ? 'bg-warn/15 text-warn' : 'bg-accent/12 text-accent')}>{ICON[a.kind]}</span>
         <div className="min-w-0 flex-1">
           <p className="text-[13.5px] font-medium leading-5">{a.title}</p>
-          <p className="mt-0.5 text-xs text-muted">{a.body}</p>
+          <p className="mt-0.5 whitespace-pre-line text-xs text-muted">{a.body}</p>
           {a.missed && <p className="mt-0.5 text-[11px] text-faint">Came due while Vyro was closed</p>}
         </div>
         <IconButton label="Dismiss" size="xs" onClick={close} className="-mr-1 -mt-1">
