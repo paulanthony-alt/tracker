@@ -376,6 +376,12 @@ export const notificationPrefsSchema = z.object({
   habitNudgeTime: isoTime.nullable(),
   /** Day-before preview of everything on tomorrow's calendar; null = off. Missing = the default (5:30 PM). */
   tomorrowTime: isoTime.nullable().optional(),
+  /** Sunday-evening overview of the week ahead; null = off. Missing = the default (6 PM). */
+  weekAheadTime: isoTime.nullable().optional(),
+  /** Daily study reminder in the days before a test or quiz; null = off. Missing = the default (4 PM). */
+  studyTime: isoTime.nullable().optional(),
+  /** How many days before a test or quiz the study reminders start (1–7, default 3). */
+  studyDaysBefore: z.number().int().min(1).max(7).optional(),
 });
 export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>;
 

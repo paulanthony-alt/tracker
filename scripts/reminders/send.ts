@@ -1,6 +1,6 @@
 /**
- * Vyro push sender. Runs on a schedule (GitHub Actions, every 10 minutes —
- * see .github/workflows/reminders.yml), reads your data from Firestore, and
+ * Vyro push sender. Runs on a schedule (GitHub Actions, about every 10 minutes —
+ * see .github/workflows/reminders.yml), reads everyone's data from Firestore, and
  * pushes anything due soon to every device that turned push on.
  *
  * Each run covers [now − GRACE, now + LOOKAHEAD): items are sent up to
@@ -11,7 +11,7 @@
  * Environment:
  *   FIREBASE_SERVICE_ACCOUNT  service-account JSON (GitHub secret)
  *   LOOKAHEAD_MINUTES         default 30; set to the schedule interval (the workflow uses 10)
- *   GRACE_MINUTES             default 45
+ *   GRACE_MINUTES             default 180: how late a run may still send something it missed
  *   DRY_RUN=1                 log what would be sent, record nothing
  *   VERBOSE_LOGS=1            include titles and device names in the log (for running
  *                             locally). Off by default because Actions logs of a public
@@ -27,7 +27,7 @@ import { isValidTimeZone } from '../../shared/calendar.ts';
 import type { CalendarEvent, Habit, NotificationPrefs, Project, Reminder, SchoolClass, Settings, Task } from '../../shared/schema.ts';
 
 const LOOKAHEAD = Number(process.env.LOOKAHEAD_MINUTES ?? 30) * 60_000;
-const GRACE = Number(process.env.GRACE_MINUTES ?? 45) * 60_000;
+const GRACE = Number(process.env.GRACE_MINUTES ?? 180) * 60_000;
 const DRY_RUN = process.env.DRY_RUN === '1';
 const VERBOSE = process.env.VERBOSE_LOGS === '1';
 const KEEP_SENT_MS = 3 * 86_400_000;
@@ -95,7 +95,14 @@ async function sendFor(root: DocumentReference, messaging: Messaging, who: strin
   let skipped = 0;
   let failures = 0;
 
+  let stale = 0;
   for (const n of due) {
+    // A late run (GitHub sometimes skips scheduled runs) still sends what was missed,
+    // but not "starts in 15 min" for something that has already started.
+    if (n.until !== undefined && n.until <= now) {
+      stale++;
+      continue;
+    }
     const marker = root.collection('sent').doc(createHash('sha256').update(n.key).digest('hex').slice(0, 40));
     if (DRY_RUN) {
       const exists = (await marker.get()).exists;
@@ -157,7 +164,7 @@ async function sendFor(root: DocumentReference, messaging: Messaging, who: strin
     const old = await root.collection('sent').where('sentAt', '<', now - KEEP_SENT_MS).get();
     await Promise.all(old.docs.map((d) => d.ref.delete()));
   }
-  console.log(`${who}: done, ${sent} sent, ${skipped} already sent earlier${failures ? `, ${failures} failed` : ''}${DRY_RUN ? ' (dry run)' : ''}.`);
+  console.log(`${who}: done, ${sent} sent, ${skipped} already sent earlier${stale ? `, ${stale} skipped as already started` : ''}${failures ? `, ${failures} failed` : ''}${DRY_RUN ? ' (dry run)' : ''}.`);
   return failures;
 }
 

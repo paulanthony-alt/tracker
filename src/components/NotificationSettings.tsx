@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BellRing, Smartphone, Trash2 } from 'lucide-react';
 import type { NotificationPrefs } from '@shared/schema';
-import { DEFAULT_NOTIFICATION_PREFS, tomorrowTimeOf } from '@shared/notifications';
+import { DEFAULT_NOTIFICATION_PREFS, studyDaysOf, studyTimeOf, tomorrowTimeOf, weekAheadTimeOf } from '@shared/notifications';
 import { useStore } from '@/lib/store';
 import { requestSystemPermission, sendTestNotification, systemPermission, type PermissionState } from '@/lib/notifier';
 import { firebaseEnabled } from '@/lib/firebaseConfig';
@@ -33,12 +33,13 @@ function Toggle({ id, checked, onChange, label }: { id: string; checked: boolean
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2">
-      <div className="min-w-0">
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-2">
+      <div className="min-w-0 flex-1 basis-40">
         <p className="text-[13px]">{label}</p>
         {hint && <p className="text-xs text-faint">{hint}</p>}
       </div>
-      <div className="shrink-0">{children}</div>
+      {/* Controls drop below the label when there isn't room beside it (phones). */}
+      <div className="ml-auto shrink-0">{children}</div>
     </div>
   );
 }
@@ -209,6 +210,29 @@ export function NotificationSettings() {
             <div className="flex items-center gap-2">
               {tomorrowTimeOf(prefs) !== null && <input type="time" className="input !h-8 !w-[8.5rem]" value={tomorrowTimeOf(prefs) ?? ''} onChange={(e) => e.target.value && set({ tomorrowTime: e.target.value })} aria-label="Tomorrow preview time" />}
               <Toggle id="notif-tomorrow" label="Tomorrow preview" checked={tomorrowTimeOf(prefs) !== null} onChange={(v) => set({ tomorrowTime: v ? DEFAULT_NOTIFICATION_PREFS.tomorrowTime : null })} />
+            </div>
+          </Row>
+          <Row label="Week ahead" hint="Sunday evening: tests, big assignments and events for the week">
+            <div className="flex items-center gap-2">
+              {weekAheadTimeOf(prefs) !== null && <input type="time" className="input !h-8 !w-[8.5rem]" value={weekAheadTimeOf(prefs) ?? ''} onChange={(e) => e.target.value && set({ weekAheadTime: e.target.value })} aria-label="Week ahead time" />}
+              <Toggle id="notif-week" label="Week ahead" checked={weekAheadTimeOf(prefs) !== null} onChange={(v) => set({ weekAheadTime: v ? DEFAULT_NOTIFICATION_PREFS.weekAheadTime : null })} />
+            </div>
+          </Row>
+          <Row label="Study reminders" hint="Each day before a test or quiz, at the time you pick">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {studyTimeOf(prefs) !== null && (
+                <>
+                  <select className="input !h-8 !w-auto" value={studyDaysOf(prefs)} onChange={(e) => set({ studyDaysBefore: Number(e.target.value) })} aria-label="Start study reminders how many days before">
+                    {[1, 2, 3, 4, 5, 7].map((n) => (
+                      <option key={n} value={n}>
+                        {n === 1 ? 'The day before' : `${n} days before`}
+                      </option>
+                    ))}
+                  </select>
+                  <input type="time" className="input !h-8 !w-[8.5rem]" value={studyTimeOf(prefs) ?? ''} onChange={(e) => e.target.value && set({ studyTime: e.target.value })} aria-label="Study reminder time" />
+                </>
+              )}
+              <Toggle id="notif-study" label="Study reminders" checked={studyTimeOf(prefs) !== null} onChange={(v) => set({ studyTime: v ? DEFAULT_NOTIFICATION_PREFS.studyTime : null })} />
             </div>
           </Row>
           <Row label="Habit nudge" hint="Evening reminder for unfinished daily habits">

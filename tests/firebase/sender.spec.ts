@@ -40,7 +40,7 @@ function reminderIn(mins: number, title = 'Bring permission slip') {
 }
 
 async function seed(reminder = reminderIn(10)) {
-  await put('vyro/owner/settings/settings', { id: 'settings', timeZone: 'UTC', notifications: { ...DEFAULT_NOTIFICATION_PREFS, digestTime: null, tomorrowTime: null } });
+  await put('vyro/owner/settings/settings', { id: 'settings', timeZone: 'UTC', notifications: { ...DEFAULT_NOTIFICATION_PREFS, digestTime: null, tomorrowTime: null, weekAheadTime: null, studyTime: null } });
   await put(`vyro/owner/reminders/${reminder.id}`, reminder);
   await put('vyro/owner/devices/d1', { id: 'd1', token: 'fake-token', label: 'Test phone', createdAt: 1, updatedAt: 1 });
   return reminder;
@@ -87,7 +87,7 @@ describe('push sender', () => {
 
   it("sends each family member's reminders from their own space, and keeps names out of the log", async () => {
     await put('vyro/owner/family/sam', { id: 'sam', username: 'sam', name: 'Sam', uid: 'u-sam', email: 'sam.a1@member.vyro.example.com', createdAt: 1, updatedAt: 1 });
-    await put('vyro/sam/settings/settings', { id: 'settings', timeZone: 'UTC', notifications: { ...DEFAULT_NOTIFICATION_PREFS, digestTime: null, tomorrowTime: null } });
+    await put('vyro/sam/settings/settings', { id: 'settings', timeZone: 'UTC', notifications: { ...DEFAULT_NOTIFICATION_PREFS, digestTime: null, tomorrowTime: null, weekAheadTime: null, studyTime: null } });
     await put('vyro/sam/reminders/r9', { ...reminderIn(10, 'Sam’s soccer cleats'), id: 'r9' });
     await put('vyro/sam/devices/d9', { id: 'd9', token: 'fake-token-sam', label: 'Sam’s phone', createdAt: 1, updatedAt: 1 });
     await seed();
@@ -98,6 +98,17 @@ describe('push sender', () => {
     const quiet = runSender({ DRY_RUN: '1' });
     expect(quiet.out).toContain('Account 2 of 2: 1 notification(s) in window');
     expect(quiet.out).not.toMatch(/sam/i);
+  });
+
+  it('catches up after GitHub skips runs, but drops "starts soon" alerts for things already started', async () => {
+    await seed({ ...reminderIn(-100, 'Missed while GitHub skipped runs'), id: 'r1' });
+    const started = new Date(Date.now() - 20 * 60_000);
+    await put('vyro/owner/events/e1', { id: 'e1', title: 'Already started', date: started.toISOString().slice(0, 10), startTime: started.toISOString().slice(11, 16), createdAt: 1, updatedAt: 1 });
+    const { out, code } = runSender({ DRY_RUN: '1', VERBOSE_LOGS: '1' });
+    expect(code).toBe(0);
+    expect(out).toContain('would send: [reminder] Missed while GitHub skipped runs');
+    expect(out).not.toContain('Already started');
+    expect(out).toContain('1 skipped as already started');
   });
 
   it('keeps a reminder queued for retry when Firebase Messaging rejects the send', async () => {

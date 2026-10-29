@@ -156,6 +156,13 @@ describe('firestore.rules', () => {
       await assertSucceeds(setDoc(doc(as('sam-uid-2', memberEmail('sam', 'b2')), 'vyro/sam/tasks/e1'), task('e1')));
     });
 
+    it('backups stay in their own space', async () => {
+      await assertSucceeds(setDoc(doc(sam(), 'vyro/sam/backups/daily-2026-10-29'), { id: 'daily-2026-10-29', kind: 'daily', createdAt: 1, records: 3, parts: 1 }));
+      await assertSucceeds(setDoc(doc(sam(), 'vyro/sam/backupParts/daily-2026-10-29-0'), { id: 'daily-2026-10-29-0', text: '{}' }));
+      await assertFails(getDoc(doc(jordan(), 'vyro/sam/backupParts/daily-2026-10-29-0')));
+      await assertFails(getDoc(doc(owner(), 'vyro/sam/backups/daily-2026-10-29')));
+    });
+
     it('only the owner manages the family list', async () => {
       await assertSucceeds(getDoc(doc(owner(), 'vyro/owner/family/sam')));
       await assertFails(getDoc(doc(sam(), 'vyro/owner/family/sam')));

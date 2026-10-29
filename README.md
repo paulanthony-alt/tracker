@@ -60,7 +60,7 @@ Whoever set Vyro up can add family members in **Settings → Family**: type thei
 
 ## Notifications
 
-**While Vyro is open** (any version, no setup), reminders, upcoming events, tasks with a due time, a morning summary, a 5:30 PM preview of everything on tomorrow's calendar and an optional evening habit nudge pop up as cards inside the app at the exact time. If you allow it, they also appear as system notifications, so you see them from other tabs. Important reminders stay on screen until you tap Done or Snooze. Anything that came due while the app was closed is shown when you reopen it. Choose what you get in **Settings → Notifications**.
+**While Vyro is open** (any version, no setup), reminders, upcoming events, tasks with a due time, a morning summary, a 5:30 PM preview of everything on tomorrow's calendar, a Sunday-evening look at the week ahead, study reminders in the days before a test or quiz, and an optional evening habit nudge pop up as cards inside the app at the exact time. If you allow it, they also appear as system notifications, so you see them from other tabs. Important reminders stay on screen until you tap Done or Snooze. Anything that came due while the app was closed is shown when you reopen it. Choose what you get in **Settings → Notifications**.
 
 **On your phone when Vyro is closed** (Firebase version, free) uses push notifications. Firebase can deliver push for free but can't *schedule* it on the free plan, so a small script on GitHub Actions checks every 10 minutes and pushes anything due before the next check. Notifications can arrive a few minutes early, and they always show the exact time. GitHub Actions is free for public repositories like this one. GitHub's scheduled runs are sometimes delayed by a few minutes at busy times.
 
@@ -77,7 +77,18 @@ Whoever set Vyro up can add family members in **Settings → Family**: type thei
 
 If a run fails with an error mentioning the Cloud Messaging API, enable **Firebase Cloud Messaging API (V1)** under Project settings → Cloud Messaging.
 
-GitHub pauses scheduled jobs in public repositories after 60 days without any commits. If reminders stop arriving, open **Actions → Vyro reminders** and click **Enable workflow**.
+GitHub pauses scheduled jobs in public repositories after 60 days without any commits. A weekly keep-alive step in the same workflow re-enables it through the GitHub API, so this shouldn't happen; if reminders ever stop, open **Actions → Vyro reminders** and click **Enable workflow**.
+
+**Getting reminders on time (recommended).** GitHub runs scheduled jobs on a best-effort basis and can skip runs for hours in quiet repositories. Vyro catches up on anything missed in the last 3 hours (skipping "starts in 15 min" alerts for things that already started), but for on-time reminders, have a free cron service start the job every 10 minutes instead:
+
+1. **Make a token that can only start this workflow.** GitHub → your profile picture → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**. Name it "Vyro reminders", pick the longest expiration, **Only select repositories →** this repo, then **Repository permissions → Actions → Read and write**. Generate and copy it.
+2. **Create a free account at [cron-job.org](https://cron-job.org)** → **Create cronjob**:
+   - URL: `https://api.github.com/repos/<you>/<repo>/actions/workflows/reminders.yml/dispatches`
+   - Schedule: every 10 minutes
+   - Advanced → Request method **POST**; headers `Authorization: Bearer <your token>`, `Accept: application/vnd.github+json`; request body `{"ref":"main"}`
+3. Save, then **Test run**: a `204` response means it worked, and a new run appears under **Actions → Vyro reminders**.
+
+The token can only start workflow runs in this one repository. If it ever leaks, delete it in GitHub and make a new one.
 
 ## Google Classroom & Google Calendar
 
@@ -135,6 +146,7 @@ An assignment is a task with a class, and a business task is a task with a proje
 
 - **Local server mode (`npm start` / `npm run dev`):** data lives in `data/vyro.db`, a SQLite database on your computer. Each change is checked and saved within about half a second. If the server goes away mid-edit, unsent changes are kept in the browser and sent automatically when it comes back.
 - **Automatic backups:** each day the server starts, a JSON snapshot is written to `data/backups/` (the last 14 are kept). A safety snapshot is also taken before any import or full erase.
+- **Automatic backups (Firebase version):** each person's Vyro saves a copy of their data once a day (the last 7 are kept) in their own private space, plus a safety copy before erasing, importing or restoring. **Settings → Backups** lists them with one-click **Restore** (which saves a safety copy of "now" first, so it can be undone) and **Download**.
 - **Manual backups:** Settings → *Export backup (JSON)* / *Import backup*.
 - **Fallback mode:** if you open the built app without its server (for example `dist/` on a static host), it saves to that browser's `localStorage`. The sidebar shows **“Saved in this browser”** when this happens. Limitations: that data stays in that one browser on that one device, clearing site data erases it, and browsers cap storage at roughly 5 MB. Export backups regularly in this mode. If you later run the server against an empty database, browser-only data is moved into it automatically.
 

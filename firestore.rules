@@ -41,7 +41,9 @@ service cloud.firestore {
                       // bookkeeping (links), and what the Google sync script sent (inbox).
                       'links', 'inbox',
                       // The owner's list of family members (only meaningful under vyro/owner).
-                      'family'];
+                      'family',
+                      // Automatic daily and safety backups of this person's data (Settings → Backups).
+                      'backups', 'backupParts'];
     }
 
     // The sync key a person's Google script must present. Lives in vyro/{member}/links/key.

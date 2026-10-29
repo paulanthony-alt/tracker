@@ -1,4 +1,4 @@
-import { Bell, CalendarClock, CalendarDays, CheckSquare, Flame, Sun, X } from 'lucide-react';
+import { Bell, BookOpen, CalendarClock, CalendarDays, CalendarRange, CheckSquare, Flame, Sun, X } from 'lucide-react';
 import { useAlerts, type ActiveAlert } from '@/lib/notifier';
 import { useStore } from '@/lib/store';
 import { openModal } from '@/lib/ui';
@@ -14,6 +14,8 @@ const ICON: Record<ActiveAlert['kind'], React.ReactNode> = {
   digest: <Sun size={16} />,
   habits: <Flame size={16} />,
   tomorrow: <CalendarDays size={16} />,
+  week: <CalendarRange size={16} />,
+  study: <BookOpen size={16} />,
 };
 
 function snoozeReminder(id: string, minutes: number) {

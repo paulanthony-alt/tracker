@@ -529,3 +529,60 @@ export async function removeInbox(id: string): Promise<void> {
   start();
   await deleteDoc(doc(inboxCollection(), id));
 }
+
+// ---------------------------------------------------------------------------
+// Backups (in each person's own space; see src/lib/backups.ts)
+// ---------------------------------------------------------------------------
+
+export interface BackupInfo {
+  id: string;
+  kind: string;
+  createdAt: number;
+  records: number;
+  parts: number;
+}
+
+/** Firestore documents are capped at 1 MiB, so a backup is stored in pieces. */
+const BACKUP_PART_CHARS = 300_000;
+
+export function watchBackups(cb: (list: BackupInfo[]) => void): () => void {
+  start();
+  return onSnapshot(
+    memberCollection('backups'),
+    (snap) => cb(snap.docs.map((d) => d.data() as BackupInfo).sort((a, b) => b.createdAt - a.createdAt)),
+    () => cb([]),
+  );
+}
+
+export async function listBackups(): Promise<BackupInfo[]> {
+  start();
+  return (await getDocs(memberCollection('backups'))).docs.map((d) => d.data() as BackupInfo).sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export async function saveBackup(info: Omit<BackupInfo, 'parts'>, json: string): Promise<void> {
+  start();
+  const parts: string[] = [];
+  for (let i = 0; i < json.length; i += BACKUP_PART_CHARS) parts.push(json.slice(i, i + BACKUP_PART_CHARS));
+  // Pieces first, the summary last: a backup only shows up once it's complete.
+  for (let i = 0; i < parts.length; i += 8) {
+    const batch = writeBatch(db);
+    parts.slice(i, i + 8).forEach((text, j) => batch.set(doc(memberCollection('backupParts'), `${info.id}-${i + j}`), { id: `${info.id}-${i + j}`, text }));
+    await batch.commit();
+  }
+  await setDoc(doc(memberCollection('backups'), info.id), { ...info, parts: parts.length } satisfies BackupInfo);
+}
+
+export async function readBackup(info: BackupInfo): Promise<string> {
+  start();
+  const parts = await Promise.all(Array.from({ length: info.parts }, (_, i) => getDoc(doc(memberCollection('backupParts'), `${info.id}-${i}`))));
+  if (parts.some((p) => !p.exists())) throw new Error('This backup is incomplete and can’t be used.');
+  return parts.map((p) => p.data()!.text as string).join('');
+}
+
+export async function deleteBackup(info: BackupInfo): Promise<void> {
+  start();
+  const batch = writeBatch(db);
+  batch.delete(doc(memberCollection('backups'), info.id));
+  for (let i = 0; i < info.parts; i++) batch.delete(doc(memberCollection('backupParts'), `${info.id}-${i}`));
+  await batch.commit();
+}

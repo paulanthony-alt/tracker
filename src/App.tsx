@@ -13,6 +13,7 @@ import { Onboarding } from '@/components/Onboarding';
 import { AlertStack } from '@/components/AlertStack';
 import { browserTimeZone, startNotifier } from '@/lib/notifier';
 import { startImports } from '@/lib/imports';
+import { startDailyBackups } from '@/lib/backups';
 import { BootScreen } from '@/components/BrandMark';
 import { StartupSequence, startupAnimationEnabled } from '@/components/StartupSequence';
 import { FirebaseGate } from '@/components/Login';
@@ -184,6 +185,8 @@ function MainContent({ ready, loadError }: { ready: boolean; loadError: string |
   }, [ready, loadError]);
   // Bring in Google Classroom and Calendar (Settings → Connections) once your data has loaded.
   useEffect(() => (ready && !loadError ? startImports() : undefined), [ready, loadError]);
+  // A daily copy of your data (Settings → Backups).
+  useEffect(() => (ready && !loadError ? startDailyBackups() : undefined), [ready, loadError]);
 
   if (!ready)
     return (

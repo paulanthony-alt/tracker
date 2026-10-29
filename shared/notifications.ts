@@ -15,17 +15,23 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   digestTime: '07:30',
   habitNudgeTime: null,
   tomorrowTime: '17:30',
+  weekAheadTime: '18:00',
+  studyTime: '16:00',
+  studyDaysBefore: 3,
 };
 
 /** When the "tomorrow" preview goes out, or null if it's off. Older saved settings don't have it yet: they get the default. */
 export const tomorrowTimeOf = (prefs: NotificationPrefs) => (prefs.tomorrowTime === undefined ? DEFAULT_NOTIFICATION_PREFS.tomorrowTime! : prefs.tomorrowTime);
+export const weekAheadTimeOf = (prefs: NotificationPrefs) => (prefs.weekAheadTime === undefined ? DEFAULT_NOTIFICATION_PREFS.weekAheadTime! : prefs.weekAheadTime);
+export const studyTimeOf = (prefs: NotificationPrefs) => (prefs.studyTime === undefined ? DEFAULT_NOTIFICATION_PREFS.studyTime! : prefs.studyTime);
+export const studyDaysOf = (prefs: NotificationPrefs) => prefs.studyDaysBefore ?? DEFAULT_NOTIFICATION_PREFS.studyDaysBefore!;
 
 export interface DueNotification {
   /** Stable id for de-duplication. Changes if the item is rescheduled, so it notifies again. */
   key: string;
   /** When it should fire (UTC ms). */
   at: number;
-  kind: 'reminder' | 'event' | 'task' | 'digest' | 'habits' | 'tomorrow';
+  kind: 'reminder' | 'event' | 'task' | 'digest' | 'habits' | 'tomorrow' | 'week' | 'study';
   title: string;
   body: string;
   /** In-app route to open (hash), e.g. "#/tasks". */
@@ -33,6 +39,8 @@ export interface DueNotification {
   important?: boolean;
   /** The record it came from, for actions like "Done" or "Snooze". */
   refId?: string;
+  /** For "starts soon"/"due soon" alerts: the moment it starts or is due. After that, the alert is pointless. */
+  until?: number;
 }
 
 export interface NotificationData {
@@ -46,6 +54,39 @@ export interface NotificationData {
 
 const minutes = (n: number) => n * 60_000;
 const MAX_PREVIEW_LINES = 6;
+const MAX_WEEK_LINES = 8;
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const isTest = (t: Task) => t.assignmentType === 'test' || t.assignmentType === 'quiz';
+const daysBetween = (from: string, to: string) => Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+const inDays = (n: number) => (n === 1 ? 'tomorrow' : `in ${n} days`);
+
+/**
+ * The week from `from` to `to`, biggest things first: tests and quizzes, then big
+ * assignments (projects, essays, high priority), then one-off events and
+ * milestones. Repeating events (practice, lessons) are summed up in one line.
+ */
+function weekAhead(data: NotificationData, from: string, to: string): string[] {
+  const day = (d: string) => DAY_NAMES[weekday(d)];
+  const where = (t: Task) => data.classes?.find((c) => c.id === t.classId)?.name ?? data.projects?.find((p) => p.id === t.projectId)?.name;
+  const open = data.tasks.filter((t) => t.status !== 'done' && !t.archived && t.dueDate && t.dueDate >= from && t.dueDate <= to).sort((a, b) => (a.dueDate! < b.dueDate! ? -1 : 1));
+  const line = (t: Task) => `${day(t.dueDate!)} · ${t.title}${where(t) ? ` (${where(t)})` : ''}`;
+  const tests = open.filter(isTest);
+  const big = open.filter((t) => !isTest(t) && (t.assignmentType === 'project' || t.assignmentType === 'essay' || t.priority === 'high' || t.priority === 'urgent'));
+  const oneOff: { date: string; line: string }[] = [];
+  const repeating = new Map<string, number>();
+  for (const e of data.events) {
+    const dates = occurrencesInRange(e.date, e.recurrence, from, to);
+    if (!dates.length) continue;
+    if (e.recurrence) repeating.set(e.title, (repeating.get(e.title) ?? 0) + dates.length);
+    else for (const d of dates) oneOff.push({ date: d, line: `${day(d)}${e.startTime ? ` ${formatClock(e.startTime)}` : ''} · ${e.title}` });
+  }
+  for (const p of data.projects ?? []) for (const m of p.milestones) if (!m.done && m.dueDate && m.dueDate >= from && m.dueDate <= to) oneOff.push({ date: m.dueDate, line: `${day(m.dueDate)} · Milestone: ${m.title}` });
+  oneOff.sort((a, b) => (a.date < b.date ? -1 : 1));
+  const testLine = (t: Task) => (/\b(test|quiz|exam|midterm|final)/i.test(t.title) ? line(t) : line({ ...t, title: `${t.assignmentType === 'quiz' ? 'Quiz' : 'Test'}: ${t.title}` }));
+  const lines = [...tests.map(testLine), ...big.map(line), ...oneOff.map((o) => o.line)];
+  if (repeating.size) lines.push(`Also: ${[...repeating].map(([title, n]) => `${title} ×${n}`).join(', ')}`);
+  return lines;
+}
 
 /**
  * Everything on the calendar for one date, timed items first: events, tasks and
@@ -112,7 +153,8 @@ export function dueNotifications(data: NotificationData, prefs: NotificationPref
     for (const e of data.events) {
       if (!e.startTime) continue;
       for (const date of occurrencesInRange(e.date, e.recurrence, days[0], days[days.length - 1])) {
-        const at = zonedTime(date, e.startTime, timeZone) - minutes(lead);
+        const start = zonedTime(date, e.startTime, timeZone);
+        const at = start - minutes(lead);
         if (!inWindow(at)) continue;
         out.push({
           key: `evt:${e.id}:${date}T${e.startTime}`,
@@ -122,6 +164,7 @@ export function dueNotifications(data: NotificationData, prefs: NotificationPref
           body: `${lead === 0 ? 'Starting now' : `Starts ${leadText(lead)}`} · ${formatClock(e.startTime)}${e.location ? ` · ${e.location}` : ''}`,
           url: `#/calendar?view=day&date=${date}`,
           refId: e.id,
+          until: start,
         });
       }
     }
@@ -131,7 +174,8 @@ export function dueNotifications(data: NotificationData, prefs: NotificationPref
     const lead = prefs.taskLeadMinutes;
     for (const t of data.tasks) {
       if (t.status === 'done' || t.archived || !t.dueDate || !t.dueTime) continue;
-      const at = zonedTime(t.dueDate, t.dueTime, timeZone) - minutes(lead);
+      const dueAt = zonedTime(t.dueDate, t.dueTime, timeZone);
+      const at = dueAt - minutes(lead);
       if (!inWindow(at)) continue;
       const where = data.classes?.find((c) => c.id === t.classId)?.name ?? data.projects?.find((p) => p.id === t.projectId)?.name;
       out.push({
@@ -143,6 +187,7 @@ export function dueNotifications(data: NotificationData, prefs: NotificationPref
         url: `#/tasks?task=${t.id}`,
         important: t.priority === 'urgent' || t.priority === 'high',
         refId: t.id,
+        until: dueAt,
       });
     }
   }
@@ -193,6 +238,47 @@ export function dueNotifications(data: NotificationData, prefs: NotificationPref
         title: `Tomorrow: ${items.length} thing${items.length === 1 ? '' : 's'} on your calendar`,
         body: lines.join('\n'),
         url: `#/calendar?view=day&date=${next}`,
+      });
+    }
+  }
+
+  const weekTime = weekAheadTimeOf(prefs);
+  if (weekTime) {
+    for (const date of days) {
+      if (weekday(date) !== 0) continue; // Sundays
+      const at = zonedTime(date, weekTime, timeZone);
+      if (!inWindow(at)) continue;
+      const lines = weekAhead(data, addDays(date, 1), addDays(date, 7));
+      if (!lines.length) continue;
+      const shown = lines.slice(0, MAX_WEEK_LINES);
+      if (lines.length > MAX_WEEK_LINES) shown.push(`+${lines.length - MAX_WEEK_LINES} more`);
+      out.push({ key: `week:${date}`, at, kind: 'week', title: 'Your week ahead', body: shown.join('\n'), url: `#/calendar?view=week&date=${addDays(date, 1)}` });
+    }
+  }
+
+  const studyTime = studyTimeOf(prefs);
+  if (studyTime) {
+    const ahead = studyDaysOf(prefs);
+    for (const date of days) {
+      const at = zonedTime(date, studyTime, timeZone);
+      if (!inWindow(at)) continue;
+      const tests = data.tasks
+        .filter((t) => isTest(t) && t.status !== 'done' && !t.archived && t.dueDate && t.dueDate > date && t.dueDate <= addDays(date, ahead))
+        .sort((a, b) => (a.dueDate! < b.dueDate! ? -1 : 1));
+      if (!tests.length) continue;
+      const planned = data.tasks.filter((t) => t.assignmentType === 'study' && t.status !== 'done' && !t.archived && t.dueDate === date);
+      const className = (t: Task) => data.classes?.find((c) => c.id === t.classId)?.name;
+      const lines = [
+        ...tests.map((t) => `${t.title} · ${inDays(daysBetween(date, t.dueDate!))}${className(t) ? ` (${className(t)})` : ''}`),
+        ...planned.map((t) => `Planned today: ${t.title}${t.estimateMinutes ? ` · ${t.estimateMinutes} min` : ''}`),
+      ];
+      out.push({
+        key: `study:${date}`,
+        at,
+        kind: 'study',
+        title: tests.length === 1 ? `Study time: ${tests[0].title} ${inDays(daysBetween(date, tests[0].dueDate!))}` : `Study time: ${tests.length} tests coming up`,
+        body: lines.join('\n'),
+        url: '#/school?tab=planner',
       });
     }
   }

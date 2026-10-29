@@ -5,14 +5,20 @@
 # logs counts and times, never reminder titles or device names.
 #
 # Setup: README → Notifications. Scheduled runs happen on the default branch
-# (main). GitHub pauses schedules in public repos after 60 days without commits;
-# if reminders stop, re-enable it under Actions → Vyro reminders.
+# (main). GitHub pauses schedules in public repos after 60 days without commits,
+# so a weekly keep-alive job re-enables this workflow through the GitHub API
+# (no commits needed). GitHub runs schedules on a best-effort basis and can skip
+# some; the sender catches up on anything up to 3 hours late, and README →
+# Notifications shows how to trigger it on time from a free cron service.
 # Test anytime with Actions → "Vyro reminders" → Run workflow.
 name: Vyro reminders
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    # Off the top of the hour, when GitHub is busiest and most likely to skip runs.
+    - cron: '4-59/10 * * * *'
+    # Weekly keep-alive (Monday 05:23 UTC).
+    - cron: '23 5 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -23,7 +29,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  keepalive:
+    if: github.event.schedule == '23 5 * * 1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      actions: write
+    steps:
+      - run: gh api --method PUT "repos/${{ github.repository }}/actions/workflows/reminders.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   send:
+    if: github.event.schedule != '23 5 * * 1'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

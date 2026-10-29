@@ -15,6 +15,7 @@ import { loadSampleData, removeSampleDataWithConfirm } from '@/components/Onboar
 import { NotificationSettings } from '@/components/NotificationSettings';
 import { ConnectionsSettings } from '@/components/ConnectionsSettings';
 import { FamilySettings } from '@/components/FamilySettings';
+import { BackupsCard } from '@/components/BackupsCard';
 import { setStartupAnimationEnabled, startupAnimationEnabled } from '@/components/StartupSequence';
 
 export async function exportBackup() {
@@ -67,6 +68,17 @@ export function SettingsPage() {
   const total = COLLECTIONS.filter((c) => c !== 'settings').reduce((n, c) => n + (s[c as Exclude<typeof c, 'settings'>] as unknown[]).length, 0);
   const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform);
 
+  /** Firebase version: save a backup before replacing everything. False if it failed and you chose not to go ahead. */
+  const safetyCopy = async (kind: 'before-import' | 'before-erase') => {
+    if (s.storageMode !== 'firebase') return true;
+    try {
+      await (await import('@/lib/backups')).takeBackup(kind);
+      return true;
+    } catch {
+      return confirmAction({ title: 'Couldn’t save a safety backup', message: 'Vyro couldn’t save a copy of your current data first (are you offline?). Continue anyway?', confirmLabel: 'Continue', danger: true });
+    }
+  };
+
   const importFile = async (file: File) => {
     let parsed: unknown;
     try {
@@ -90,6 +102,7 @@ export function SettingsPage() {
       confirmLabel: 'Replace data',
     });
     if (!ok) return;
+    if (!(await safetyCopy('before-import'))) return;
     try {
       await s.replaceAll(result.data.settings.length ? result.data : { ...result.data, settings: [settings] });
       toast.success('Backup restored');
@@ -99,6 +112,7 @@ export function SettingsPage() {
   };
 
   const resetAll = async () => {
+    if (!(await safetyCopy('before-erase'))) return;
     try {
       await s.replaceAll({ ...emptySnapshot(), settings: [defaultSettings()] });
       setResetOpen(false);
@@ -180,6 +194,7 @@ export function SettingsPage() {
 
         {s.storageMode === 'firebase' && account && <AccountCard username={account.username} />}
         {s.storageMode === 'firebase' && account?.owner && <FamilySettings />}
+        {s.storageMode === 'firebase' && <BackupsCard />}
 
         <Card title="Your data" icon={s.storageMode !== 'local' ? <Database size={15} /> : <HardDrive size={15} />}>
           <div className={cn('rounded-xl border p-3 text-[13px] leading-relaxed', s.storageMode !== 'local' ? 'border-good/25 bg-good/[0.06]' : 'border-warn/30 bg-warn/[0.08]')}>
